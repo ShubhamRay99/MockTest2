@@ -1,0 +1,2037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdTech Assessor Pro - 3D Analytics Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .hidden { display: none !important; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        
+        /* Smooth transitions for interactive rows */
+        tbody tr { transition: all 0.2s ease-in-out; }
+        tbody tr:hover { transform: scale(1.005); box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05); z-index: 10; position: relative; background-color: #ffffff; }
+        
+        /* Custom Dropdown Arrow SVG */
+        .custom-select {
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236B7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem top 50%;
+            background-size: 0.65rem auto;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="view-home" class="min-h-screen flex items-center justify-center p-6">
+        <div class="glass-panel p-10 rounded-2xl shadow-xl max-w-lg w-full text-center">
+            <h1 class="text-3xl font-bold text-blue-700 mb-2">EdTech Assessor Pro</h1>
+            <p class="text-gray-500 mb-8">Select your portal to proceed.</p>
+            <div class="space-y-4">
+                <button onclick="startExam()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-lg shadow-blue-500/30">
+                    Start Exam (Aspirant Mode)
+                </button>
+                <button onclick="switchView('view-evaluator')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-lg shadow-emerald-500/30">
+                    Upload & Review (Evaluator Mode)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-exam" class="hidden min-h-screen p-6 flex flex-col max-w-4xl mx-auto select-none">
+        <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">Mock Exam: General Studies</h2>
+                <p id="exam-status" class="text-sm text-gray-500">Attempt all questions. Window switching & copy-pasting is strictly prohibited.</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Time Remaining</p>
+                <p id="timer-display" class="text-2xl font-bold text-red-600">01:45:00</p>
+            </div>
+        </header>
+
+        <main class="flex-1 bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+            <div id="question-container">
+                </div>
+        </main>
+
+        <footer class="mt-6 flex justify-between items-center">
+            <button id="btn-prev" onclick="navigate(-1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-6 rounded-lg transition disabled:opacity-50">Previous</button>
+            <span id="question-counter" class="font-medium text-gray-500">Q 1 of X</span>
+            <button id="btn-next" onclick="navigate(1)" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition">Next</button>
+            <button id="btn-submit" onclick="submitExam()" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-lg transition">Submit Exam</button>
+        </footer>
+    </div>
+
+    <div id="view-evaluator" class="hidden min-h-screen p-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <header class="flex justify-between items-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">Evaluator Dashboard</h1>
+                <div class="space-x-4">
+                    <button id="btn-save-eval" onclick="saveEvaluation()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow transition font-medium">
+                        💾 Save & Export Evaluation
+                    </button>
+                    <button onclick="switchView('view-home')" class="text-blue-600 hover:underline font-medium">Exit Dashboard</button>
+                </div>
+            </header>
+
+            <div id="upload-section" class="bg-white p-10 rounded-xl shadow-sm border border-gray-200 text-center mb-8">
+                <h3 class="text-xl font-semibold mb-4">Import Exam Data (.examdata)</h3>
+                <input type="file" id="file-upload" accept=".examdata" class="hidden" onchange="handleFileUpload(event)">
+                <label for="file-upload" class="cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 py-3 px-8 rounded-lg inline-block font-medium transition shadow-md">
+                    Browse & Upload File
+                </label>
+            </div>
+
+            <div id="dashboard-content" class="hidden space-y-8">
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="text-lg font-bold">Sub-Topic Performance Radar</h3>
+                                <p class="text-xs text-gray-500">Accuracy vs Confidence per sub-topic.</p>
+                            </div>
+                        </div>
+                        <div class="relative flex-1 w-full flex justify-center min-h-[300px]">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+                        <h3 class="text-lg font-bold mb-2">Section Breakdown</h3>
+                        <p class="text-xs text-gray-500 mb-4">Attempted (Correct/Wrong) vs Unattempted.</p>
+                        <div class="relative flex-1 w-full min-h-[300px]">
+                            <canvas id="stackedBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                    <h4 class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wider">Filter Analytics by Topic</h4>
+                    <div id="dashboard-tabs" class="flex justify-center flex-wrap gap-2">
+                        </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+                    
+                    <div class="p-5 border-b border-gray-100 bg-white flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">Detailed 1-on-1 Review</h3>
+                            <p class="text-xs text-gray-500">Log Metacognition & Root Causes here.</p>
+                        </div>
+                        
+                        <div class="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
+                            <div class="relative w-full md:w-64 shrink-0">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input type="text" id="table-search" oninput="handleSearch(this.value)" class="block w-full p-2 pl-9 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm" placeholder="Search Topics & Sub-topics...">
+                            </div>
+
+                            <div id="table-filters" class="flex flex-wrap gap-2 w-full md:w-auto"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto max-h-[650px] overflow-y-auto">
+                        <table class="min-w-full text-left border-collapse">
+                            <thead class="sticky top-0 bg-gray-50/95 backdrop-blur z-20 shadow-sm border-b border-gray-200">
+                                <tr class="text-gray-600 text-sm uppercase tracking-wider">
+                                    <th class="py-4 px-6 font-semibold w-16">Q#</th>
+                                    <th class="py-4 px-6 font-semibold w-1/2">Question Details & Explanation</th>
+                                    <th class="py-4 px-6 font-semibold w-32">Status</th>
+                                    <th class="py-4 px-6 font-semibold w-72">Collaborative Tracker</th>
+                                </tr>
+                            </thead>
+                            <tbody id="breakdown-table-body" class="text-sm">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 class="text-lg font-bold mb-2">Cognitive Flow Analysis (Sankey Diagram)</h3>
+                    <p class="text-xs text-gray-500 mb-4">Visualizes the pipeline from Confidence → Root Cause → Final Outcome. Controlled by the Topic Filter above.</p>
+                    <div id="sankeyChart" class="w-full h-[400px]"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<script>
+/* =====================================================================
+   RAW DATA BANK
+   ===================================================================== */
+const rawQuestionBank = [  {
+    "question_number": 1,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 8: Odisha State Economy & Development",
+    "question": "Match List-I (Odisha State Schemes) with List-II (Core Objective/Target):\nList-I\na. KALIA\nb. BSKY\nc. Mission Shakti\nd. Mo Sarkar\nList-II\n1. Feedback-based governance system\n2. Financial assistance to cultivators and landless agricultural laborers\n3. Empowerment of Women through Self Help Groups (SHGs)\n4. Universal health coverage for the state's population",
+    "options": [
+      "A) a-2, b-4, c-3, d-1",
+      "B) a-4, b-2, c-1, d-3",
+      "C) a-2, b-3, c-4, d-1",
+      "D) a-3, b-4, c-2, d-1"
+    ],
+    "correct_answer": "A) a-2, b-4, c-3, d-1",
+    "explanation": "KALIA (Krushak Assistance for Livelihood and Income Augmentation) targets farmers and landless laborers. BSKY (Biju Swasthya Kalyan Yojana) is for universal health coverage. Mission Shakti focuses on women's empowerment through SHGs. Mo Sarkar is a citizen-centric feedback-based governance model."
+  },
+  {
+    "question_number": 2,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 6: Odisha Environment & Regional Ecology",
+    "question": "Match List-I (Odisha Protected Areas) with List-II (Key Fauna/Ecological Significance):\nList-I\na. Bhitarkanika National Park\nb. Gahirmatha Marine Sanctuary\nc. Simlipal National Park\nd. Chilika Lake\nList-II\n1. Mass nesting of Olive Ridley Turtles (Arribada)\n2. Largest wintering ground for migratory birds in the Indian sub-continent\n3. Second largest mangrove ecosystem in India and saltwater crocodiles\n4. Biosphere reserve known for melanistic tigers",
+    "options": [
+      "A) a-3, b-1, c-4, d-2",
+      "B) a-1, b-3, c-2, d-4",
+      "C) a-3, b-2, c-4, d-1",
+      "D) a-4, b-1, c-3, d-2"
+    ],
+    "correct_answer": "A) a-3, b-1, c-4, d-2",
+    "explanation": "Bhitarkanika is famous for its mangroves and saltwater crocodiles. Gahirmatha is the world's largest known rookery of Olive Ridley turtles. Simlipal is a biosphere reserve known for its unique melanistic tigers. Chilika is a brackish water lagoon and a massive wintering ground for migratory birds."
+  },
+  {
+    "question_number": 3,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 1 & 2: Ancient & Late Medieval Dynasties",
+    "question": "Match List-I (Ancient/Medieval Dynasties of Odisha) with List-II (Notable Ruler/Founder):\nList-I\na. Mahameghavahana Dynasty\nb. Imperial Gangas\nc. Somavamsis\nd. Suryavamsi Gajapatis\nList-II\n1. Yayati I\n2. Kapilendra Deva\n3. Kharavela\n4. Anantavarman Chodaganga Deva",
+    "options": [
+      "A) a-3, b-1, c-4, d-2",
+      "B) a-3, b-4, c-1, d-2",
+      "C) a-2, b-4, c-1, d-3",
+      "D) a-4, b-3, c-2, d-1"
+    ],
+    "correct_answer": "B) a-3, b-4, c-1, d-2",
+    "explanation": "Emperor Kharavela belonged to the Mahameghavahana dynasty. Anantavarman Chodaganga Deva was a prominent ruler of the Imperial Gangas. Yayati I was a great ruler of the Somavamsi dynasty. Kapilendra Deva founded the Suryavamsi Gajapati empire."
+  },
+  {
+    "question_number": 4,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 9: Current Dynamics, Reports & Indices",
+    "question": "Match List-I (Major Reports/Indices) with List-II (Publishing Organization):\nList-I\na. World Economic Outlook\nb. Global Gender Gap Report\nc. Export Preparedness Index\nd. Global Economic Prospects\nList-II\n1. NITI Aayog\n2. World Bank\n3. International Monetary Fund (IMF)\n4. World Economic Forum (WEF)",
+    "options": [
+      "A) a-3, b-4, c-1, d-2",
+      "B) a-2, b-4, c-1, d-3",
+      "C) a-3, b-1, c-4, d-2",
+      "D) a-4, b-3, c-2, d-1"
+    ],
+    "correct_answer": "A) a-3, b-4, c-1, d-2",
+    "explanation": "World Economic Outlook is published by the IMF. Global Gender Gap Report is published by the WEF. Export Preparedness Index is a state-level index published by NITI Aayog. Global Economic Prospects is released by the World Bank."
+  },
+  {
+    "question_number": 5,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 3: Environmental Pollution, Degradation & Health",
+    "question": "Match List-I (Pollutants) with List-II (Health/Environmental Impact):\nList-I\na. Chlorofluorocarbons (CFCs)\nb. Nitrogen Oxides (NOx)\nc. Lead (Pb)\nd. Excess Phosphates\nList-II\n1. Eutrophication in aquatic bodies\n2. Ozone layer depletion\n3. Photochemical smog formation\n4. Neurological damage, especially in children",
+    "options": [
+      "A) a-2, b-3, c-4, d-1",
+      "B) a-3, b-2, c-1, d-4",
+      "C) a-2, b-4, c-3, d-1",
+      "D) a-4, b-3, c-2, d-1"
+    ],
+    "correct_answer": "A) a-2, b-3, c-4, d-1",
+    "explanation": "CFCs cause ozone depletion. Nitrogen Oxides interact with sunlight and VOCs to form photochemical smog. Lead exposure causes severe neurological damage. Excess phosphates in water bodies lead to algal blooms and eutrophication."
+  },
+  {
+    "question_number": 6,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 1: Money, Banking & Financial Markets",
+    "question": "Consider the following statements regarding the Monetary Policy of the Reserve Bank of India (RBI):\n1. An increase in the Cash Reserve Ratio (CRR) decreases the money multiplier and reduces liquidity in the banking system.\n2. The Repo Rate is the rate at which commercial banks park their excess liquidity with the RBI.\n3. Open Market Operations (OMOs) involve the sale and purchase of government securities to regulate the money supply.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "C) 1 and 3 only",
+    "explanation": "Statement 1 is correct; higher CRR means banks keep more money with RBI, reducing lending capacity. Statement 3 is correct. Statement 2 is incorrect; the rate at which banks park excess liquidity with RBI is the Reverse Repo Rate. The Repo Rate is the rate at which the RBI lends money to commercial banks."
+  },
+  {
+    "question_number": 7,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 3: Transition, British Conquest & Resistance",
+    "question": "Consider the following statements regarding the Paik Rebellion of 1817:\n1. It was primarily an armed rebellion led by Bakshi Jagabandhu against the British East India Company's revenue policies.\n2. The immediate trigger was the British monopoly on the salt trade and the abolition of the cowrie currency.\n3. The rebellion was completely localized to the Khurda region and did not spread to neighboring areas like Puri and Cuttack.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 only",
+      "B) 1 and 2 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are correct causes of the Paik Rebellion. Statement 3 is incorrect; while it started in Khurda, the rebellion quickly spread to Piply, Puri, Kujang, and parts of Cuttack."
+  },
+  {
+    "question_number": 8,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 1: Ecological Principles & Ecosystems",
+    "question": "Consider the following statements regarding the concept of Ecological Succession:\n1. Primary succession occurs in areas where a biological community has been destroyed but the soil remains intact.\n2. The pioneer species in a primary succession on bare rock are usually lichens and mosses.\n3. A climax community is a stable, mature community that undergoes little or no change in species composition over time.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 2 and 3 only",
+    "explanation": "Statement 2 and 3 are correct. Statement 1 is incorrect; Secondary succession occurs where soil remains intact after a disturbance (like a forest fire). Primary succession occurs on bare rock where no soil exists."
+  },
+  {
+    "question_number": 9,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 3: Macroeconomics, GDP & Inflation",
+    "question": "Consider the following statements concerning National Income Accounting:\n1. Gross Domestic Product (GDP) calculates the total value of all final goods and services produced by the citizens of a country, regardless of their geographic location.\n2. Real GDP is calculated using base year prices to eliminate the effect of inflation.\n3. Transfer payments, such as pensions and scholarships, are not included in the calculation of National Income.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 2 and 3 only",
+    "explanation": "Statement 2 is correct. Statement 3 is correct. Statement 1 is incorrect; GDP calculates the value of goods/services produced within the geographic borders of a country. GNP (Gross National Product) calculates production by citizens, regardless of location."
+  },
+  {
+    "question_number": 10,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 2: Late Medieval Dynasties & Culture",
+    "question": "With reference to the art and architecture of Odisha, consider the following statements:\n1. The Kalinga style of temple architecture primarily features three distinct types of temples: Rekha Deula, Pidha Deula, and Khakhara Deula.\n2. The Lingaraj Temple in Bhubaneswar is an example of the Khakhara Deula style.\n3. The Sun Temple at Konark, built by Narasimhadeva I, is designed in the shape of a colossal chariot.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 1 and 3 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 3 only",
+    "explanation": "Statement 1 is correct. Statement 3 is correct. Statement 2 is incorrect; the Lingaraj Temple is a classic example of Rekha Deula (the main spire) and Pidha Deula (the Jagamohana). The Khakhara Deula is primarily used for Shakta temples (e.g., Baitala Deula)."
+  },
+  {
+    "question_number": 11,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 6: Odisha Environment & Regional Ecology",
+    "question": "Consider the following statements regarding the Olive Ridley Turtles in Odisha:\n1. The mass nesting phenomenon of these turtles is known as 'Arribada'.\n2. The Rushikulya river mouth and Gahirmatha beach are two of the most prominent nesting sites in Odisha.\n3. They are categorized as 'Critically Endangered' on the IUCN Red List.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "A) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are factual regarding Odisha's ecology. Statement 3 is incorrect; Olive Ridley Turtles are currently classified as Vulnerable on the IUCN Red List, not Critically Endangered."
+  },
+  {
+    "question_number": 12,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "With reference to the Prajamandal Movement in Odisha, consider the following statements:\n1. The movement was a struggle by the people living in the princely states of Odisha against the oppressive feudal regime of the local rulers.\n2. Sarangadhar Das was a prominent leader who played a crucial role in mobilizing the masses during this movement.\n3. The movement directly resulted in the creation of a separate Odisha province in 1936.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "A) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are correct. Statement 3 is incorrect; the Prajamandal movement occurred in the late 1930s and 1940s against the Garhjat rulers. The separate province of Odisha was formed in 1936 due to linguistic and cultural identity movements, not directly due to the Prajamandal movement."
+  },
+  {
+    "question_number": 13,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 7: Microeconomics Fundamentals",
+    "question": "Consider the following statements about Market Structures in Microeconomics:\n1. In a perfectly competitive market, individual firms are price makers rather than price takers.\n2. A monopolistically competitive market features many firms selling differentiated products.\n3. An oligopoly is characterized by a market dominated by a small number of large sellers.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 2 and 3 only",
+    "explanation": "Statements 2 and 3 correctly define Monopolistic Competition and Oligopoly. Statement 1 is incorrect; in a Perfectly Competitive market, individual firms are price takers because they are too small to influence the market price."
+  },
+  {
+    "question_number": 14,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Overview (Chronology)",
+    "question": "Arrange the following landmark events in the history of Odisha in chronological order:\n1. The Great Famine of Odisha (Na'anka Durbhikshya)\n2. Formation of a separate Odisha Province\n3. The Paik Rebellion\n4. The Khurda Rebellion led by Jayee Rajguru",
+    "options": [
+      "A) 4, 3, 1, 2",
+      "B) 3, 4, 1, 2",
+      "C) 4, 1, 3, 2",
+      "D) 3, 1, 4, 2"
+    ],
+    "correct_answer": "A) 4, 3, 1, 2",
+    "explanation": "4. Khurda Rebellion (Jayee Rajguru) - 1804. 3. Paik Rebellion (Bakshi Jagabandhu) - 1817. 1. Great Famine (Na'anka Durbhikshya) - 1866. 2. Formation of separate Odisha - 1936."
+  },
+  {
+    "question_number": 15,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Arrange the following environmental treaties/protocols in chronological order of their adoption:\n1. Paris Agreement on Climate Change\n2. Kyoto Protocol\n3. Montreal Protocol\n4. Stockholm Convention on Persistent Organic Pollutants",
+    "options": [
+      "A) 3, 2, 4, 1",
+      "B) 2, 3, 1, 4",
+      "C) 3, 4, 2, 1",
+      "D) 4, 2, 3, 1"
+    ],
+    "correct_answer": "A) 3, 2, 4, 1",
+    "explanation": "3. Montreal Protocol (1987). 2. Kyoto Protocol (1997). 4. Stockholm Convention (2001). 1. Paris Agreement (2015)."
+  },
+  {
+    "question_number": 16,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Overview (Chronology)",
+    "question": "Arrange the following economic reforms/events in India in chronological order:\n1. Enactment of the Fiscal Responsibility and Budget Management (FRBM) Act\n2. Nationalization of 14 major commercial banks\n3. Introduction of the Goods and Services Tax (GST)\n4. Introduction of the New Economic Policy (LPG Reforms)",
+    "options": [
+      "A) 2, 4, 1, 3",
+      "B) 4, 2, 3, 1",
+      "C) 2, 1, 4, 3",
+      "D) 4, 1, 2, 3"
+    ],
+    "correct_answer": "A) 2, 4, 1, 3",
+    "explanation": "2. Nationalization of Banks (1969). 4. LPG Reforms (1991). 1. FRBM Act (2003). 3. GST Introduction (2017)."
+  },
+  {
+    "question_number": 17,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 1: Money, Banking & Financial Markets",
+    "question": "Assertion (A): The Reserve Bank of India (RBI) often increases the Repo Rate during periods of high inflation.\nReason (R): A higher Repo Rate makes borrowing cheaper for commercial banks, thereby increasing the money supply and stimulating demand to balance the economy.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "C) A is true but R is false",
+    "explanation": "The RBI does increase the Repo rate during high inflation (Assertion is true). However, the Reason is false; a higher Repo rate makes borrowing more expensive, which decreases the money supply and cools down demand to check inflation."
+  },
+  {
+    "question_number": 18,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 3: Environmental Pollution, Degradation & Health",
+    "question": "Assertion (A): Corals are highly susceptible to 'bleaching' during strong El Niño events.\nReason (R): Elevated sea surface temperatures cause corals to expel the symbiotic zooxanthellae algae living in their tissues, leading to a loss of color and vital energy sources.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "A) Both A and R are individually true and R is the correct explanation of A",
+    "explanation": "El Niño often causes a spike in sea surface temperatures. This thermal stress causes corals to expel their symbiotic algae (zooxanthellae), leading to coral bleaching."
+  },
+  {
+    "question_number": 19,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 1: Ancient & Early Medieval Odisha",
+    "question": "Assertion (A): The Hathigumpha Inscription is the most reliable primary source for understanding the reign of Emperor Kharavela.\nReason (R): It was composed in Sanskrit and details the complete genealogy of the Maurya dynasty in Kalinga.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "C) A is true but R is false",
+    "explanation": "The Hathigumpha Inscription is indeed the primary source for Kharavela's reign (Assertion is true). However, the Reason is false; the inscription is written in Prakrit language (using Brahmi script), not Sanskrit, and it details Kharavela's own achievements, not the Maurya dynasty's genealogy."
+  },
+  {
+    "question_number": 20,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 5: External Sector & International Trade",
+    "question": "Which of the following statements regarding the 'Balance of Payments (BoP)' is NOT correct?",
+    "options": [
+      "A) The Current Account records exports and imports of goods and services, and unilateral transfers.",
+      "B) Foreign Direct Investment (FDI) and Foreign Portfolio Investment (FPI) are recorded in the Capital Account.",
+      "C) A Current Account Deficit (CAD) implies that the value of a country's imported goods and services exceeds the value of its exported goods and services.",
+      "D) Remittances sent by Indian workers abroad are accounted for under the Capital Account of the BoP."
+    ],
+    "correct_answer": "D",
+    "explanation": "Statement D is incorrect. Remittances, along with gifts and grants, are considered unilateral transfers (invisibles) and are recorded under the Current Account, not the Capital Account."
+  },
+  {
+    "question_number": 21,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 4: Socio-Cultural Awakening & Reforms",
+    "question": "Which of the following statements about Mahima Dharma, a socio-religious movement in Odisha, is NOT correct?",
+    "options": [
+      "A) It was founded by Mahima Swami, and later popularized by his disciple Bhima Bhoi.",
+      "B) The movement strongly advocated for the rigid observance of the caste system and Brahminical rituals.",
+      "C) It preached monotheism and the worship of 'Alekh', the formless, ultimate reality.",
+      "D) It was a subaltern movement that largely attracted followers from the marginalized and tribal sections of society."
+    ],
+    "correct_answer": "B",
+    "explanation": "Statement B is incorrect. Mahima Dharma was a reformist movement that fiercely opposed the caste system, idolatry, and Brahminical dominance, making it highly popular among marginalized communities."
+  },
+  {
+    "question_number": 22,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 3: Environmental Pollution, Degradation & Health",
+    "question": "Which of the following statements regarding 'E-Waste' (Electronic Waste) management in India is NOT correct?",
+    "options": [
+      "A) E-waste often contains hazardous heavy metals like lead, mercury, and cadmium.",
+      "B) Under the E-Waste (Management) Rules in India, the concept of Extended Producer Responsibility (EPR) has been completely abolished.",
+      "C) Improper burning of e-waste can release highly toxic dioxins and furans into the atmosphere.",
+      "D) The formal recycling sector currently handles a much smaller percentage of e-waste in India compared to the informal sector."
+    ],
+    "correct_answer": "B",
+    "explanation": "Statement B is incorrect. Extended Producer Responsibility (EPR) is the cornerstone of E-Waste rules in India. It makes producers responsible for the environmentally sound management of their products at the end of their life."
+  },
+  {
+    "question_number": 23,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 4: Sectors of the Economy, Agriculture & Infrastructure",
+    "question": "Which of the following statements regarding the Minimum Support Price (MSP) in India is NOT correct?",
+    "options": [
+      "A) MSP is announced by the Government of India on the recommendations of the Commission for Agricultural Costs and Prices (CACP).",
+      "B) MSP acts as a safety net for farmers to protect them against sharp falls in agricultural prices.",
+      "C) It is a legally guaranteed right for farmers, meaning private traders can be imprisoned for buying produce below the MSP.",
+      "D) Sugarcane pricing is governed by Fair and Remunerative Price (FRP) rather than the standard MSP."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is incorrect. While farmers' unions frequently demand it, MSP is currently an administrative policy and not a legally guaranteed right. Private buyers are not legally bound to buy at MSP."
+  },
+  {
+    "question_number": 24,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 1: Ancient & Early Medieval Odisha",
+    "question": "Which of the following statements concerning the 'Somavamsi' dynasty of Odisha is NOT correct?",
+    "options": [
+      "A) They succeeded the Bhauma-Karas and brought a large part of Odisha under a single unified administration.",
+      "B) They were great patrons of Saivism and are credited with building the famous Lingaraj Temple in Bhubaneswar.",
+      "C) The Somavamsi kings frequently used the title 'Trikalingadhipati' (Lord of the three Kalingas).",
+      "D) They were the first rulers to establish European trade factories on the coast of Kalinga."
+    ],
+    "correct_answer": "D",
+    "explanation": "Statement D is incorrect. The Somavamsi dynasty ruled roughly between the 9th and 12th centuries. European trade factories were not established in Odisha until the 17th century, centuries after the Somavamsis declined."
+  },
+  {
+    "question_number": 25,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 1: Ecological Principles & Ecosystems",
+    "question": "Which of the following statements regarding 'Biogeochemical Cycles' is NOT correct?",
+    "options": [
+      "A) The carbon cycle is primarily a gaseous cycle, with the atmosphere and oceans acting as major reservoirs.",
+      "B) Nitrogen fixation is the process where plants directly absorb atmospheric nitrogen (N2) through their leaves.",
+      "C) The phosphorus cycle is an example of a sedimentary cycle, as its main reservoir is the earth's crust.",
+      "D) Decomposers play a vital role in releasing nutrients back into the soil during these cycles."
+    ],
+    "correct_answer": "B",
+    "explanation": "Statement B is incorrect. Plants cannot directly absorb inert atmospheric nitrogen gas. Nitrogen fixation is the process where bacteria (like Rhizobium) or lightning convert nitrogen into usable forms like ammonia or nitrates, which plants absorb through their roots."
+  },
+  {
+    "question_number": 26,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 7: Microeconomics Fundamentals",
+    "question": "In Microeconomics, what does the term 'Opportunity Cost' refer to?",
+    "options": [
+      "A) The total financial cost incurred in producing a specific good.",
+      "B) The value of the next best alternative forgone when a choice is made.",
+      "C) The cost associated with finding buyers and sellers in a market.",
+      "D) The continuous reduction in the marginal utility of a good as more is consumed."
+    ],
+    "correct_answer": "B",
+    "explanation": "Opportunity cost is a fundamental microeconomic concept representing the potential benefit that is lost when you choose one alternative over another."
+  },
+  {
+    "question_number": 27,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "Who among the following prominent personalities is famously known as the 'Utkal Gaurav' and played a paramount role in the formation of the separate province of Odisha?",
+    "options": [
+      "A) Gopabandhu Das",
+      "B) Madhusudan Das",
+      "C) Krishna Chandra Gajapati",
+      "D) Surendra Sai"
+    ],
+    "correct_answer": "B",
+    "explanation": "Madhusudan Das is revered as 'Utkal Gaurav' (Pride of Utkal). He founded the Utkal Sammilani in 1903, which spearheaded the movement for the unification of Odia-speaking tracts."
+  },
+  {
+    "question_number": 28,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Which environmental principle states that if an action or policy has a suspected risk of causing harm to the public or to the environment, in the absence of scientific consensus, the burden of proof that it is not harmful falls on those taking the action?",
+    "options": [
+      "A) Polluter Pays Principle",
+      "B) Principle of Intergenerational Equity",
+      "C) Precautionary Principle",
+      "D) Extended Producer Responsibility"
+    ],
+    "correct_answer": "C",
+    "explanation": "This is the exact definition of the Precautionary Principle, a key element of modern environmental governance and a principle frequently upheld by the National Green Tribunal (NGT)."
+  },
+  {
+    "question_number": 29,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 2: Public Finance, Budgeting & Taxation",
+    "question": "The concept of 'Fiscal Deficit' in the Union Budget is best described as:",
+    "options": [
+      "A) The difference between Revenue Receipts and Revenue Expenditure.",
+      "B) The total borrowings required by the government to bridge the gap between its total expenditure and total receipts (excluding borrowings).",
+      "C) The sum of the budget deficit and the primary deficit.",
+      "D) The amount of money the government prints to finance its operations."
+    ],
+    "correct_answer": "B",
+    "explanation": "Fiscal Deficit represents the total borrowing requirements of the government. It occurs when total expenditure exceeds total revenue (excluding money from borrowings)."
+  },
+  {
+    "question_number": 30,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "The 'National Green Tribunal (NGT)' was established in India under the NGT Act of 2010. Which of the following fundamental rights from the Indian Constitution primarily inspired its creation?",
+    "options": [
+      "A) Right to Equality (Article 14)",
+      "B) Right to Life and Personal Liberty, interpreted to include the right to a healthy environment (Article 21)",
+      "C) Right against Exploitation (Article 23)",
+      "D) Right to Constitutional Remedies (Article 32)"
+    ],
+    "correct_answer": "B",
+    "explanation": "The NGT was created specifically to handle environmental disputes and is heavily inspired by Article 21 of the Constitution, which the Supreme Court of India has interpreted to include the right to a clean and healthy environment as inherent to the 'Right to Life.'"
+  },
+{
+    "question_number": 31,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 2: Late Medieval Dynasties & Culture",
+    "question": "Match List-I (Eminent Personalities of Odisha) with List-II (Key Contribution/Work):\nList-I\na. Sarala Das\nb. Jayadeva\nc. Balaram Das\nd. Jagannath Das\nList-II\n1. Composed the Gita Govinda\n2. Authored the Odia Bhagavata\n3. Wrote the Odia Mahabharata\n4. Authored the Dandi Ramayana (Jagamohana Ramayana)",
+    "options": [
+      "A) a-3, b-1, c-4, d-2",
+      "B) a-4, b-2, c-3, d-1",
+      "C) a-3, b-2, c-4, d-1",
+      "D) a-1, b-3, c-2, d-4"
+    ],
+    "correct_answer": "A) a-3, b-1, c-4, d-2",
+    "explanation": "Sarala Das is famous for the Odia Mahabharata. Jayadeva composed the world-renowned Sanskrit poem Gita Govinda. Balaram Das wrote the Dandi Ramayana (Jagamohana Ramayana), and Jagannath Das is revered for his Odia translation/adaptation of the Bhagavata."
+  },
+  {
+    "question_number": 32,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Match List-I (Global Environmental Conventions) with List-II (Primary Objective):\nList-I\na. CITES\nb. Ramsar Convention\nc. Basel Convention\nd. Minamata Convention\nList-II\n1. Control of transboundary movements of hazardous wastes\n2. Protection of human health and environment from mercury\n3. Conservation and wise use of wetlands\n4. Regulating international trade in endangered species of wild flora and fauna",
+    "options": [
+      "A) a-4, b-3, c-1, d-2",
+      "B) a-3, b-4, c-2, d-1",
+      "C) a-4, b-1, c-3, d-2",
+      "D) a-1, b-2, c-4, d-3"
+    ],
+    "correct_answer": "A) a-4, b-3, c-1, d-2",
+    "explanation": "CITES restricts trade in endangered species. Ramsar protects wetlands. Basel controls hazardous waste movement. Minamata focuses on reducing mercury pollution."
+  },
+  {
+    "question_number": 33,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 7: Microeconomics Fundamentals",
+    "question": "Match List-I (Microeconomic Market Structures) with List-II (Defining Characteristic):\nList-I\na. Perfect Competition\nb. Monopoly\nc. Monopolistic Competition\nd. Oligopoly\nList-II\n1. A single seller with significant barriers to entry for others.\n2. Many sellers offering differentiated, but similar, products.\n3. A few interdependent large firms dominating the market.\n4. Large number of buyers and sellers trading identical products as price takers.",
+    "options": [
+      "A) a-2, b-1, c-4, d-3",
+      "B) a-4, b-1, c-2, d-3",
+      "C) a-4, b-3, c-2, d-1",
+      "D) a-1, b-4, c-3, d-2"
+    ],
+    "correct_answer": "B) a-4, b-1, c-2, d-3",
+    "explanation": "Perfect Competition features many buyers/sellers of identical products. Monopoly is a single seller. Monopolistic competition involves many sellers of differentiated products (like toothpaste brands). Oligopoly is dominated by a few large firms (like telecom operators)."
+  },
+  {
+    "question_number": 34,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 9: Current Dynamics, Reports & Indices",
+    "question": "Match List-I (Economic Committees/Frameworks) with List-II (Related Sector/Reform):\nList-I\na. N.K. Singh Committee\nb. Urjit Patel Committee\nc. Narasimham Committee\nd. Vijay Kelkar Committee\nList-II\n1. Banking Sector Reforms\n2. Public-Private Partnership (PPP) Model Revitalization\n3. Review of the FRBM Act\n4. Monetary Policy Framework (Inflation Targeting)",
+    "options": [
+      "A) a-3, b-4, c-1, d-2",
+      "B) a-4, b-3, c-2, d-1",
+      "C) a-3, b-1, c-4, d-2",
+      "D) a-2, b-4, c-1, d-3"
+    ],
+    "correct_answer": "A) a-3, b-4, c-1, d-2",
+    "explanation": "N.K. Singh Committee reviewed the FRBM Act. Urjit Patel recommended targeting inflation (Monetary Policy Framework). Narasimham Committee is the hallmark of Indian Banking Reforms. Vijay Kelkar Committee reviewed the PPP model."
+  },
+  {
+    "question_number": 35,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 6: Odisha Environment & Regional Ecology",
+    "question": "Match List-I (Odisha Wildlife/Ecology Sites) with List-II (Specific Significance):\nList-I\na. Satkosia\nb. Debrigarh\nc. Chandaka-Dampara\nd. Rushikulya\nList-II\n1. Major nesting site for Olive Ridley turtles\n2. Dedicated elephant sanctuary near Bhubaneswar\n3. Important gorge sanctuary along the Mahanadi river\n4. Wildlife sanctuary historically associated with freedom fighter Surendra Sai",
+    "options": [
+      "A) a-3, b-4, c-2, d-1",
+      "B) a-4, b-3, c-1, d-2",
+      "C) a-3, b-1, c-4, d-2",
+      "D) a-2, b-4, c-3, d-1"
+    ],
+    "correct_answer": "A) a-3, b-4, c-2, d-1",
+    "explanation": "Satkosia is a gorge/tiger reserve on the Mahanadi. Debrigarh is adjacent to the Hirakud dam and was a base for Veer Surendra Sai. Chandaka is an elephant sanctuary. Rushikulya is famous for the Olive Ridley arribada."
+  },
+  {
+    "question_number": 36,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 1: Ancient & Early Medieval Odisha",
+    "question": "Consider the following statements regarding the Bhauma-Kara Dynasty of early medieval Odisha:\n1. The dynasty is highly notable for having several female rulers who assumed full sovereign titles like 'Maharajadhiraja'.\n2. Tribhuvana Mahadevi I was a prominent female sovereign of this dynasty.\n3. Their capital was located at Guhadevapataka, which is identified with modern-day Jajpur.\n4. They were strictly orthodox Hindus who persecuted Buddhists and destroyed Buddhist viharas.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1, 2, and 3 only",
+      "B) 2 and 4 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, 3, and 4"
+    ],
+    "correct_answer": "A) 1, 2, and 3 only",
+    "explanation": "Statements 1, 2, and 3 are correct. The Bhauma-Karas had several queens who ruled effectively, and their capital was Guhadevapataka. Statement 4 is incorrect; they were remarkably tolerant and patronized Buddhism, Saivism, and Vaishnavism alike."
+  },
+  {
+    "question_number": 37,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 3: Macroeconomics, GDP & Inflation",
+    "question": "With reference to the measurement of Inflation in India, consider the following statements:\n1. Headline inflation is a measure of the total inflation within an economy, including highly volatile commodities like food and energy.\n2. Core inflation excludes food and energy prices from the inflation basket to capture the underlying trend.\n3. The Reserve Bank of India (RBI) currently uses the Wholesale Price Index (WPI) as its primary gauge for setting monetary policy targets.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 only",
+      "B) 1 and 2 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 2 only",
+    "explanation": "Statements 1 and 2 correctly define Headline and Core inflation. Statement 3 is incorrect; the RBI officially adopted the Consumer Price Index (CPI-Combined) as its key inflation gauge for monetary policy in 2014, shifting away from the WPI."
+  },
+  {
+    "question_number": 38,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "Consider the following statements regarding the Civil Disobedience Movement (Salt Satyagraha) in Odisha:\n1. Inchudi in the Balasore district emerged as the second most important center for the Salt Satyagraha in India after Dandi.\n2. The movement in Balasore was primarily spearheaded by Harekrushna Mahtab.\n3. Women leaders like Rama Devi and Malati Choudhury actively abstained from participating in the movement to focus on constructive social work.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "A) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are historically accurate. Statement 3 is incorrect; women leaders like Rama Devi and Malati Choudhury were extremely active in the Salt Satyagraha, leading marches, making salt, and facing imprisonment."
+  },
+  {
+    "question_number": 39,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 3: Environmental Pollution, Degradation & Health",
+    "question": "Consider the following statements regarding the Environmental Impact Assessment (EIA) framework in India:\n1. The EIA process gets its statutory backing from the Environment (Protection) Act, 1986.\n2. 'Scoping' is the stage in the EIA process where the terms of reference for the environmental impact study are determined.\n3. Public consultation is completely exempt for all categories of developmental projects under the current EIA notification.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "A) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are correct. Statement 3 is incorrect; while certain projects (like strategic defense projects) are exempt from public consultation, it is definitely not completely exempt for all categories. It remains a mandatory step for most Category A and B1 projects."
+  },
+  {
+    "question_number": 40,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 6: Odisha Environment & Regional Ecology",
+    "question": "Consider the following statements about the Simlipal Biosphere Reserve:\n1. It is a part of the UNESCO World Network of Biosphere Reserves.\n2. The reserve is home to the indigenous Mankidia and Khadia tribal populations.\n3. Its vegetation is strictly limited to dry deciduous forests with no trace of semi-evergreen species.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 only",
+      "B) 1 and 2 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are correct. Statement 3 is incorrect; Simlipal's vegetation is diverse, consisting of dry deciduous, moist deciduous, and even patches of semi-evergreen forests, along with rich orchid diversity."
+  },
+  {
+    "question_number": 41,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 2: Public Finance, Budgeting & Taxation",
+    "question": "With reference to the Goods and Services Tax (GST) in India, consider the following statements:\n1. GST is a destination-based consumption tax.\n2. The GST Council is a statutory body created through an act of Parliament, not a constitutional body.\n3. Alcohol for human consumption is constitutionally kept out of the purview of GST.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 1 and 3 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 3 only",
+    "explanation": "Statements 1 and 3 are correct. Statement 2 is incorrect; the GST Council is a Constitutional Body established under Article 279A of the Indian Constitution, not a statutory body."
+  },
+  {
+    "question_number": 42,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 6: Social Development & Reforms",
+    "question": "Consider the following statements regarding employment and poverty:\n1. 'Disguised unemployment' is primarily found in the agricultural sector of India, where more people are engaged in a job than actually required.\n2. The Multidimensional Poverty Index (MPI) released by NITI Aayog only considers health and education, ignoring the standard of living.\n3. Structural unemployment occurs due to a mismatch between the skills that workers possess and the skills demanded by employers.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 1 and 3 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 3 only",
+    "explanation": "Statements 1 and 3 correctly define disguised and structural unemployment. Statement 2 is incorrect; the Multidimensional Poverty Index (MPI) assesses poverty across three equally weighted dimensions: Health, Education, and Standard of Living."
+  },
+  {
+    "question_number": 43,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 5: External Sector & International Trade",
+    "question": "Consider the following statements concerning Foreign Direct Investment (FDI) and Foreign Portfolio Investment (FPI):\n1. FDI involves establishing a lasting interest and significant control in a foreign enterprise, whereas FPI involves buying financial assets like stocks and bonds without managerial control.\n2. FPI is generally considered more volatile and prone to capital flight ('hot money') compared to FDI.\n3. Both FDI and FPI are recorded in the Current Account of the Balance of Payments (BoP).\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "A) 1 and 2 only",
+    "explanation": "Statements 1 and 2 highlight the correct differences between FDI and FPI. Statement 3 is incorrect; both FDI and FPI represent capital flows and are therefore recorded in the Capital Account of the BoP, not the Current Account."
+  },
+  {
+    "question_number": 44,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 1 & 2: Ancient to Late Medieval Dynasties",
+    "question": "Arrange the following ancient/medieval dynasties of Odisha in chronological order of their rule:\n1. Somavamsis\n2. Bhauma-Karas\n3. Sailodbhavas\n4. Imperial Gangas",
+    "options": [
+      "A) 3, 2, 1, 4",
+      "B) 2, 3, 1, 4",
+      "C) 3, 1, 2, 4",
+      "D) 2, 1, 3, 4"
+    ],
+    "correct_answer": "A) 3, 2, 1, 4",
+    "explanation": "The chronological order is Sailodbhavas (approx. 6th-8th century), Bhauma-Karas (8th-10th century), Somavamsis (9th-12th century), and Imperial Gangas (11th-15th century)."
+  },
+  {
+    "question_number": 45,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Arrange the following landmark environmental acts of India in chronological order of their enactment:\n1. Environment (Protection) Act\n2. Wildlife (Protection) Act\n3. Forest Rights Act (Scheduled Tribes and Other Traditional Forest Dwellers Act)\n4. Forest (Conservation) Act",
+    "options": [
+      "A) 2, 4, 1, 3",
+      "B) 4, 2, 1, 3",
+      "C) 2, 1, 4, 3",
+      "D) 1, 2, 4, 3"
+    ],
+    "correct_answer": "A) 2, 4, 1, 3",
+    "explanation": "2. Wildlife (Protection) Act - 1972. 4. Forest (Conservation) Act - 1980. 1. Environment (Protection) Act - 1986. 3. Forest Rights Act - 2006."
+  },
+  {
+    "question_number": 46,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Overview (Chronology)",
+    "question": "Arrange the following events related to the Indian Economy in chronological order:\n1. The beginning of the First Five-Year Plan\n2. The economic crisis leading to LPG Reforms\n3. Establishment of NITI Aayog\n4. The nationalization of the Reserve Bank of India (RBI)",
+    "options": [
+      "A) 4, 1, 2, 3",
+      "B) 1, 4, 2, 3",
+      "C) 4, 2, 1, 3",
+      "D) 1, 2, 4, 3"
+    ],
+    "correct_answer": "A) 4, 1, 2, 3",
+    "explanation": "4. Nationalization of RBI - 1949. 1. First Five-Year Plan - 1951. 2. LPG Reforms - 1991. 3. Establishment of NITI Aayog - 2015."
+  },
+  {
+    "question_number": 47,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 4: Climate Change, Impacts & Renewable Energy",
+    "question": "Assertion (A): The presence of ozone in the stratosphere is crucial for terrestrial life, whereas ground-level (tropospheric) ozone is considered a harmful pollutant.\nReason (R): Stratospheric ozone absorbs harmful ultraviolet (UV) radiation from the sun, while ground-level ozone is a primary component of photochemical smog that causes respiratory distress.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "A) Both A and R are individually true and R is the correct explanation of A",
+    "explanation": "The assertion correctly identifies the 'good' vs. 'bad' ozone, and the reason accurately explains the chemical and environmental mechanisms behind why stratospheric ozone protects us while tropospheric ozone harms us."
+  },
+  {
+    "question_number": 48,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 2: Late Medieval Dynasties & Culture",
+    "question": "Assertion (A): Emperor Kapilendra Deva assumed the prestigious title of 'Gajapati' (Lord of Elephants).\nReason (R): His military supremacy and rapid territorial expansion across South India were heavily dependent on his massive and formidable elephant corps.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "A) Both A and R are individually true and R is the correct explanation of A",
+    "explanation": "Kapilendra Deva took the title 'Gajapati' literally because his massive standing army of war elephants gave him a distinct tactical advantage, allowing him to conquer vast territories down to the Kaveri river."
+  },
+  {
+    "question_number": 49,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 3: Environmental Pollution, Degradation & Health",
+    "question": "Assertion (A): A high Biological Oxygen Demand (BOD) in a water body indicates poor water quality.\nReason (R): High BOD means that aerobic bacteria are consuming large amounts of dissolved oxygen to decompose organic waste present in the water, leaving less oxygen for aquatic life like fish.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "A) Both A and R are individually true and R is the correct explanation of A",
+    "explanation": "BOD measures the oxygen required by bacteria to break down organic matter. High organic pollution leads to intense bacterial activity, depleting dissolved oxygen and killing fish, hence indicating poor water quality."
+  },
+  {
+    "question_number": 50,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 3: Transition, British Conquest & Resistance",
+    "question": "Which of the following statements about Veer Surendra Sai is NOT correct?",
+    "options": [
+      "A) He was a direct claimant to the throne of Sambalpur and led a rebellion against the British East India Company.",
+      "B) His revolt was triggered by the British application of the Doctrine of Lapse to annex Sambalpur.",
+      "C) He extensively used guerrilla warfare tactics from the dense forests of Barapahar to harass British troops.",
+      "D) He was eventually captured and executed by the British in a public square in Cuttack in 1857."
+    ],
+    "correct_answer": "D",
+    "explanation": "Statement D is NOT correct. Veer Surendra Sai was not executed in Cuttack. He was captured by the British and imprisoned in the Asirgarh Fort, where he spent the last years of his life and died in 1884."
+  },
+  {
+    "question_number": 51,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 7: Microeconomics Fundamentals",
+    "question": "Which of the following statements concerning 'Price Elasticity of Demand' in Microeconomics is NOT correct?",
+    "options": [
+      "A) It measures the responsiveness of the quantity demanded of a good to a change in its price.",
+      "B) If demand is perfectly inelastic, the demand curve is a horizontal straight line parallel to the X-axis.",
+      "C) Goods with close substitutes generally have more highly elastic demand.",
+      "D) Necessities, such as life-saving insulin, typically have inelastic demand."
+    ],
+    "correct_answer": "B",
+    "explanation": "Statement B is NOT correct. If demand is perfectly inelastic (quantity demanded doesn't change regardless of price), the demand curve is a vertical straight line parallel to the Y-axis. A horizontal line represents perfectly elastic demand."
+  },
+  {
+    "question_number": 52,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 4: Socio-Cultural Awakening & Reforms",
+    "question": "Which of the following statements regarding the Socio-cultural awakening in Odisha during the 19th century is NOT correct?",
+    "options": [
+      "A) The Christian Missionaries played a pioneering role in establishing the first printing press in Odisha at Cuttack.",
+      "B) The establishment of the Cuttack Printing Company by Gourishankar Ray led to the publication of the influential newspaper Utkal Deepika.",
+      "C) The Brahmo Samaj movement found no followers in Odisha and was strictly confined to Bengal.",
+      "D) Social reformers campaigned actively against practices like sati, untouchability, and the caste system."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is NOT correct. The Brahmo movement did influence Odisha. It was introduced in Odisha around the 1860s, and prominent figures like Bhaktakavi Madhusudan Rao became its staunch followers and propagators in the state."
+  },
+  {
+    "question_number": 53,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 4: Climate Change, Impacts & Renewable Energy",
+    "question": "Which of the following statements about 'Ocean Acidification' is NOT correct?",
+    "options": [
+      "A) It is primarily caused by the ocean absorbing excess carbon dioxide from the atmosphere.",
+      "B) The dissolved carbon dioxide reacts with seawater to form carbonic acid, which lowers the ocean's pH.",
+      "C) It increases the availability of carbonate ions, making it much easier for marine organisms like corals and mollusks to build their shells.",
+      "D) It is often referred to as the 'evil twin' of global warming."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is NOT correct. Ocean acidification reduces the availability of carbonate ions. This makes it much harder (not easier) for calcifying marine organisms like corals and mollusks to build and maintain their calcium carbonate shells and skeletons."
+  },
+  {
+    "question_number": 54,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 1: Money, Banking & Financial Markets",
+    "question": "Which of the following statements regarding the Insolvency and Bankruptcy Code (IBC), 2016 is NOT correct?",
+    "options": [
+      "A) It aims to consolidate and amend the laws relating to reorganization and insolvency resolution of corporate persons, partnership firms, and individuals.",
+      "B) The National Company Law Tribunal (NCLT) is the adjudicating authority for corporate insolvency resolution.",
+      "C) The IBC mandates that the entire insolvency resolution process must stretch out over a minimum period of 5 to 7 years to protect the debtor's interests.",
+      "D) It shifts the balance of power from the debtor to the creditor in resolving non-performing assets (NPAs)."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is NOT correct. The primary intent of the IBC is speedy resolution. It mandates a strict time-bound process (originally 180 days, extendable by 90 days, with an overall maximum limit of 330 days including litigation time), not 5 to 7 years."
+  },
+  {
+    "question_number": 55,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 6: Social Development & Reforms",
+    "question": "In Macroeconomics, the 'Gini Coefficient' is used to measure which of the following?",
+    "options": [
+      "A) The rate of inflation within a specific financial year.",
+      "B) The degree of income or wealth inequality within a population.",
+      "C) The ratio of the fiscal deficit to the GDP.",
+      "D) The overall ease of doing business in a country."
+    ],
+    "correct_answer": "B",
+    "explanation": "The Gini Coefficient is the most commonly used statistical measure of income distribution or wealth inequality within a nation or social group. A coefficient of 0 represents perfect equality, while 1 represents perfect inequality."
+  },
+  {
+    "question_number": 56,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "Who among the following distinguished leaders had the honor of serving as the first Prime Minister (Premier) of the newly formed separate province of Odisha in 1937?",
+    "options": [
+      "A) Harekrushna Mahtab",
+      "B) Madhusudan Das",
+      "C) Krishna Chandra Gajapati Narayan Deo",
+      "D) Nabakrushna Choudhury"
+    ],
+    "correct_answer": "C",
+    "explanation": "Maharaja Krishna Chandra Gajapati Narayan Deo of Paralakhemundi, a key architect in the formation of the separate province of Odisha, became its first Premier (Prime Minister) in 1937 under the Government of India Act, 1935."
+  },
+  {
+    "question_number": 57,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 8: Odisha State Economy & Development",
+    "question": "What is the primary objective of the 'Odisha Millets Mission' (OMM), a flagship initiative of the state government?",
+    "options": [
+      "A) To completely replace paddy cultivation with millets across the entire coastal belt.",
+      "B) To revive millets on farms and on plates to promote climate-resilient agriculture and nutritional security.",
+      "C) To export raw millets directly to European markets by establishing SEZs.",
+      "D) To genetically modify millet seeds to require high chemical fertilizer inputs."
+    ],
+    "correct_answer": "B",
+    "explanation": "The Odisha Millets Mission aims to comprehensively revive millet cultivation to enhance nutritional security and promote sustainable, climate-resilient farming systems, particularly among tribal communities."
+  },
+  {
+    "question_number": 58,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 4: Sectors of the Economy, Agriculture & Infrastructure",
+    "question": "In the context of India's agricultural marketing, what does 'e-NAM' stand for?",
+    "options": [
+      "A) Electronic National Agriculture Market",
+      "B) Environmental Notification for Agricultural Methods",
+      "C) Essential Nutrients for Agriculture Management",
+      "D) Export Network for Agricultural Machinery"
+    ],
+    "correct_answer": "A",
+    "explanation": "e-NAM stands for National Agriculture Market. It is a pan-India electronic trading portal which networks the existing APMC mandis to create a unified national market for agricultural commodities."
+  },
+  {
+    "question_number": 59,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 4: Climate Change, Impacts & Renewable Energy",
+    "question": "Which of the following greenhouse gases has the highest Global Warming Potential (GWP) over a 100-year time horizon?",
+    "options": [
+      "A) Carbon Dioxide (CO2)",
+      "B) Methane (CH4)",
+      "C) Nitrous Oxide (N2O)",
+      "D) Sulfur Hexafluoride (SF6)"
+    ],
+    "correct_answer": "D",
+    "explanation": "Sulfur Hexafluoride (SF6), an industrial gas used heavily in electrical transmission, has a Global Warming Potential thousands of times greater than Carbon Dioxide (CO2) over a 100-year period, making it the most potent greenhouse gas evaluated by the IPCC."
+  },
+  {
+    "question_number": 60,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 1: Money, Banking & Financial Markets",
+    "question": "Under the Basel Accords, 'Capital Adequacy Ratio' (CAR) is a standard designed to ensure that:",
+    "options": [
+      "A) Banks lend primarily to the priority sectors like agriculture.",
+      "B) Banks maintain enough capital reserves to absorb a reasonable amount of loss before becoming insolvent.",
+      "C) The central bank retains total control over the physical assets of commercial banks.",
+      "D) Banks can bypass domestic taxation laws on foreign exchange."
+    ],
+    "correct_answer": "B",
+    "explanation": "The Capital Adequacy Ratio (CAR), central to the Basel norms, is a measure of a bank's available capital expressed as a percentage of its risk-weighted credit exposures. It acts as a cushion to absorb potential losses and protect depositors."
+  },
+{
+    "question_number": 61,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 4: Socio-Cultural Awakening & Reforms",
+    "question": "Match List-I (Historic Newspapers/Journals of Odisha) with List-II (Founder/Editor):\nList-I\na. Utkal Deepika\nb. Bodha Dayini\nc. The Samaj\nd. Prajatantra\nList-II\n1. Fakir Mohan Senapati\n2. Harekrushna Mahtab\n3. Gourishankar Ray\n4. Gopabandhu Das",
+    "options": [
+      "A) a-3, b-1, c-4, d-2",
+      "B) a-1, b-3, c-4, d-2",
+      "C) a-3, b-4, c-1, d-2",
+      "D) a-4, b-1, c-3, d-2"
+    ],
+    "correct_answer": "A) a-3, b-1, c-4, d-2",
+    "explanation": "Utkal Deepika (1866) was edited by Gourishankar Ray; it was the first Odia newspaper. Bodha Dayini was published from Balasore by Fakir Mohan Senapati. The Samaj was founded by Utkalmani Gopabandhu Das in 1919. Prajatantra was established by Dr. Harekrushna Mahtab."
+  },
+  {
+    "question_number": 62,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 3: Transition, British Conquest & Resistance",
+    "question": "Match List-I (Tribal Uprisings in Odisha) with List-II (Prominent Leader):\nList-I\na. Ghumsar Uprising\nb. Bhuyan Uprising (Keonjhar)\nc. Kondh Rebellion\nd. Sambalpur Rebellion\nList-II\n1. Ratna Naik\n2. Dora Bisoi\n3. Surendra Sai\n4. Chakra Bisoi",
+    "options": [
+      "A) a-2, b-1, c-4, d-3",
+      "B) a-4, b-1, c-2, d-3",
+      "C) a-2, b-4, c-1, d-3",
+      "D) a-1, b-2, c-3, d-4"
+    ],
+    "correct_answer": "A) a-2, b-1, c-4, d-3",
+    "explanation": "Dora Bisoi was the leader of the Ghumsar rebellion. Ratna Naik (and later Dharanidhar Naik) led the Bhuyan uprising. Chakra Bisoi led the Kondh rebellion. Veer Surendra Sai led the Sambalpur rebellion."
+  },
+  {
+    "question_number": 63,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 2: Public Finance, Budgeting & Taxation",
+    "question": "Match List-I (Public Finance Deficits) with List-II (Formula/Definition):\nList-I\na. Revenue Deficit\nb. Fiscal Deficit\nc. Primary Deficit\nd. Monetized Deficit\nList-II\n1. Total Expenditure - Total Receipts (excluding borrowings)\n2. Fiscal Deficit - Interest Payments\n3. Revenue Expenditure - Revenue Receipts\n4. Borrowings directly from the RBI by printing new money",
+    "options": [
+      "A) a-3, b-1, c-2, d-4",
+      "B) a-1, b-3, c-2, d-4",
+      "C) a-3, b-2, c-1, d-4",
+      "D) a-2, b-1, c-4, d-3"
+    ],
+    "correct_answer": "A) a-3, b-1, c-2, d-4",
+    "explanation": "Revenue Deficit = Revenue Expenditure - Revenue Receipts. Fiscal Deficit = Total Expenditure - Total Receipts (excluding borrowings). It indicates total borrowing needs. Primary Deficit = Fiscal Deficit - Interest Payments. Monetized Deficit = Borrowings met by the RBI printing new currency."
+  },
+  {
+    "question_number": 64,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 1: Ecological Principles & Ecosystems",
+    "question": "Match List-I (Levels of Ecological Organization) with List-II (Description):\nList-I\na. Population\nb. Community\nc. Ecosystem\nd. Biosphere\nList-II\n1. All the populations of different species living and interacting in an area.\n2. A biological community of interacting organisms and their physical environment.\n3. A group of individuals of the same species living in a particular geographic area.\n4. The global sum of all ecosystems; the zone of life on Earth.",
+    "options": [
+      "A) a-3, b-1, c-2, d-4",
+      "B) a-3, b-2, c-1, d-4",
+      "C) a-1, b-3, c-2, d-4",
+      "D) a-2, b-1, c-4, d-3"
+    ],
+    "correct_answer": "A) a-3, b-1, c-2, d-4",
+    "explanation": "Population: Same species in an area. Community: Multiple interacting populations. Ecosystem: The biological community + physical (abiotic) environment. Biosphere: Global sum of ecosystems."
+  },
+  {
+    "question_number": 65,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 7: Microeconomics Fundamentals",
+    "question": "Match List-I (Microeconomic Goods) with List-II (Characteristic):\nList-I\na. Normal Good\nb. Inferior Good\nc. Veblen Good\nd. Giffen Good\nList-II\n1. Demand increases as income decreases.\n2. Demand increases as income increases.\n3. An inferior good where demand increases as its price increases due to a strong income effect.\n4. A luxury good where demand increases as price increases due to its status symbol appeal.",
+    "options": [
+      "A) a-2, b-1, c-4, d-3",
+      "B) a-1, b-2, c-3, d-4",
+      "C) a-2, b-1, c-3, d-4",
+      "D) a-4, b-3, c-1, d-2"
+    ],
+    "correct_answer": "A) a-2, b-1, c-4, d-3",
+    "explanation": "Normal Good: Demand rises with income. Inferior Good: Demand falls as income rises. Veblen Good: Luxury good where high price creates status demand. Giffen Good: A rare inferior good where price increases cause demand to increase because it consumes so much of the budget that consumers can't afford better alternatives."
+  },
+  {
+    "question_number": 66,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 2: Late Medieval Dynasties & Culture",
+    "question": "Consider the following statements regarding the Imperial Ganga Dynasty of Odisha:\n1. Anantavarman Chodaganga Deva is credited with the construction of the present monumental Jagannath Temple at Puri.\n2. Narasimhadeva I built the Sun Temple at Konark to commemorate his victory over the Muslim rulers of Bengal.\n3. The dynasty was entirely replaced by the Somavamsis in the 15th century.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "A) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are correct historical facts about the Imperial Gangas. Statement 3 is incorrect; the Imperial Gangas were succeeded by the Suryavamsi Gajapati dynasty (founded by Kapilendra Deva in 1434), not the Somavamsis."
+  },
+  {
+    "question_number": 67,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 6: Odisha Environment & Regional Ecology",
+    "question": "Consider the following statements regarding the ecology of Chilika Lake:\n1. It is designated as a wetland of international importance under the Ramsar Convention.\n2. It was completely removed from the Montreux Record due to successful ecological restoration efforts by the Chilika Development Authority.\n3. It is the only known habitat of the endangered Irrawaddy dolphins in the entire world.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 only",
+      "B) 1 and 2 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 2 only",
+    "explanation": "Statements 1 and 2 are correct. Chilika is a Ramsar site and was removed from the Montreux Record in 2002. Statement 3 is incorrect; while Chilika has a major population of Irrawaddy dolphins, they are also found in other parts of South and Southeast Asia."
+  },
+  {
+    "question_number": 68,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 4: Sectors of the Economy, Agriculture & Infrastructure",
+    "question": "With reference to the Public Distribution System (PDS) in India, consider the following statements:\n1. The Central Government is solely responsible for both the procurement of food grains and their final distribution to the consumers at fair price shops.\n2. The Targeted Public Distribution System (TPDS) was introduced to focus specifically on the Below Poverty Line (BPL) population.\n3. Issue Price is the price at which the Food Corporation of India (FCI) sells food grains to the State Governments.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 2 and 3 only",
+    "explanation": "Statements 2 and 3 are correct. Statement 1 is incorrect; under the PDS, there is a joint responsibility. The Central Government handles procurement, storage, and bulk allocation, while the State Governments handle operational responsibilities like identifying eligible families and supervising Fair Price Shops."
+  },
+  {
+    "question_number": 69,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 1 & 4: Ecological Principles & Climate Impacts",
+    "question": "Consider the following statements about Coral Reefs and Coral Bleaching:\n1. Fringing reefs are the most common type of coral reefs and grow directly from the shore.\n2. Zooxanthellae are parasitic algae that harm corals by draining their nutrients.\n3. Ocean acidification reduces the ability of corals to produce their calcium carbonate skeletons.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 1 and 3 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 3 only",
+    "explanation": "Statements 1 and 3 are correct. Statement 2 is incorrect; Zooxanthellae are symbiotic algae, not parasitic. They live inside coral tissues and provide the coral with essential nutrients through photosynthesis."
+  },
+  {
+    "question_number": 70,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "With reference to the Freedom Struggle in Odisha, consider the following statements regarding Satyabadi Vana Vidyalaya:\n1. It was founded by Pandit Gopabandhu Das in 1909 as an experiment in national education.\n2. The school's curriculum was strictly limited to Western scientific education and completely ignored vernacular literature.\n3. Prominent leaders like Nilakantha Das and Godabarish Mishra served as teachers in this institution.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 1 and 3 only",
+      "C) 2 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 1 and 3 only",
+    "explanation": "Statements 1 and 3 are correct. Statement 2 is incorrect; the school actively promoted Odia language, vernacular literature, and nationalist ideals alongside general education, contrary to the purely Western models of the time."
+  },
+  {
+    "question_number": 71,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Consider the following statements regarding the Paris Agreement on Climate Change:\n1. It is a legally binding international treaty on climate change adopted at COP 21.\n2. Its overarching goal is to hold the increase in the global average temperature to well below 2°C above pre-industrial levels.\n3. It requires all Parties to put forward their best efforts through 'Nationally Determined Contributions' (NDCs).\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "D) 1, 2, and 3",
+    "explanation": "All three statements correctly define the core components and goals of the 2015 Paris Agreement (COP 21)."
+  },
+  {
+    "question_number": 72,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 1: Money, Banking & Financial Markets",
+    "question": "Consider the following statements regarding Non-Banking Financial Companies (NBFCs) in India:\n1. NBFCs can accept demand deposits from the public just like commercial banks.\n2. They do not form part of the payment and settlement system and cannot issue cheques drawn on themselves.\n3. The deposit insurance facility of the Deposit Insurance and Credit Guarantee Corporation (DICGC) is not available to depositors of NBFCs.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 2 and 3 only",
+    "explanation": "Statements 2 and 3 correctly describe NBFC limitations compared to banks. Statement 1 is incorrect; NBFCs cannot accept demand deposits (like saving or current accounts that can be withdrawn on demand). They can only accept term deposits."
+  },
+  {
+    "question_number": 73,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "Consider the following statements regarding the role of women in Odisha's freedom movement:\n1. Rama Devi was the first woman from Odisha to be elected to the Odisha Legislative Assembly.\n2. Sarala Devi played a pivotal role in the Salt Satyagraha at Inchudi.\n3. Malati Choudhury founded the Bajiraut Chhatravas to educate the children of freedom fighters and marginalized communities.\nWhich of the statements given above is/are correct?",
+    "options": [
+      "A) 1 and 2 only",
+      "B) 2 and 3 only",
+      "C) 1 and 3 only",
+      "D) 1, 2, and 3"
+    ],
+    "correct_answer": "B) 2 and 3 only",
+    "explanation": "Statements 2 and 3 are correct. Statement 1 is incorrect; Sarala Devi, not Rama Devi, was the first Odia woman to be elected to the Odisha Legislative Assembly (in 1936)."
+  },
+  {
+    "question_number": 74,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Overview (Chronology)",
+    "question": "Arrange the following landmark events of the Indian Economy in chronological order:\n1. Establishment of the National Bank for Agriculture and Rural Development (NABARD)\n2. Nationalization of 14 major commercial banks\n3. The Securities and Exchange Board of India (SEBI) given statutory status\n4. Implementation of the Goods and Services Tax (GST)",
+    "options": [
+      "A) 2, 1, 3, 4",
+      "B) 1, 2, 3, 4",
+      "C) 2, 3, 1, 4",
+      "D) 1, 3, 2, 4"
+    ],
+    "correct_answer": "A) 2, 1, 3, 4",
+    "explanation": "2. Bank Nationalization (1969). 1. NABARD Establishment (1982). 3. SEBI gets statutory status (1992). 4. GST Implementation (2017)."
+  },
+  {
+    "question_number": 75,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Overview (Chronology)",
+    "question": "Arrange the following ancient dynasties of Odisha in chronological order:\n1. Chedi / Mahameghavahana Dynasty\n2. Nanda Dynasty's influence over Kalinga\n3. Somavamsi Dynasty\n4. Sailodbhava Dynasty",
+    "options": [
+      "A) 2, 1, 4, 3",
+      "B) 1, 2, 4, 3",
+      "C) 2, 4, 1, 3",
+      "D) 1, 4, 2, 3"
+    ],
+    "correct_answer": "A) 2, 1, 4, 3",
+    "explanation": "2. Nanda Dynasty influence (4th Century BCE). 1. Chedi / Mahameghavahana (1st Century BCE). 4. Sailodbhavas (6th - 8th Century CE). 3. Somavamsis (9th - 12th Century CE)."
+  },
+  {
+    "question_number": 76,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Arrange the following international environmental protocols/agreements in chronological order of their adoption:\n1. Minamata Convention on Mercury\n2. Convention on Biological Diversity (CBD)\n3. Ramsar Convention on Wetlands\n4. Kigali Amendment to the Montreal Protocol",
+    "options": [
+      "A) 3, 2, 1, 4",
+      "B) 2, 3, 1, 4",
+      "C) 3, 1, 2, 4",
+      "D) 2, 1, 3, 4"
+    ],
+    "correct_answer": "A) 3, 2, 1, 4",
+    "explanation": "3. Ramsar Convention (1971). 2. Convention on Biological Diversity (1992). 1. Minamata Convention (2013). 4. Kigali Amendment (2016)."
+  },
+  {
+    "question_number": 77,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 1: Ecological Principles & Ecosystems",
+    "question": "Assertion (A): In an ecological pyramid of energy, the flow of energy is always upright and can never be inverted.\nReason (R): When energy flows from a particular trophic level to the next trophic level, some energy is always lost as heat at each step, strictly following the 10% law.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "A) Both A and R are individually true and R is the correct explanation of A",
+    "explanation": "The pyramid of energy is always upright because energy flows unidirectionally from producers to consumers. The 10% law explains that 90% of energy is lost as heat at each trophic level, making an inverted pyramid physically impossible."
+  },
+  {
+    "question_number": 78,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 4: Socio-Cultural Awakening & Reforms",
+    "question": "Assertion (A): The Great Famine of 1866 (Na'anka Durbhikshya) served as a massive socio-political wake-up call for the people of Odisha.\nReason (R): Following the famine, the British administration immediately formed the separate province of Odisha in 1867 to improve local governance.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "C) A is true but R is false",
+    "explanation": "The Assertion is true; the Na'anka Famine was a major catalyst for Odia nationalism. The Reason is false; Odisha was not made a separate province immediately in 1867. It remained under the Bengal Presidency, later moved to the Bihar and Orissa province, and only became a separate province much later in 1936."
+  },
+  {
+    "question_number": 79,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 3: Macroeconomics, GDP & Inflation",
+    "question": "Assertion (A): Unexpected inflation tends to benefit borrowers (debtors) at the expense of lenders (creditors).\nReason (R): Inflation decreases the purchasing power of money, meaning borrowers repay their loans with money that is worth less than when they originally borrowed it.",
+    "options": [
+      "A) Both A and R are individually true and R is the correct explanation of A",
+      "B) Both A and R are individually true but R is NOT the correct explanation of A",
+      "C) A is true but R is false",
+      "D) A is false but R is true"
+    ],
+    "correct_answer": "A) Both A and R are individually true and R is the correct explanation of A",
+    "explanation": "Inflation erodes the real value of money. If you borrow ₹100 today and inflation spikes, the ₹100 you pay back next year has less purchasing power. Thus, borrowers gain and lenders lose."
+  },
+  {
+    "question_number": 80,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 5: Freedom Struggle & State Formation",
+    "question": "Which of the following statements about the formation of the separate province of Odisha is NOT correct?",
+    "options": [
+      "A) The Utkal Sammilani was formed in 1903 to spearhead the movement for amalgamation of Odia-speaking tracts.",
+      "B) The O'Donnell Committee was appointed by the British Government to examine the boundaries of the proposed Odisha province.",
+      "C) Odisha became a separate province on April 1, 1936, which is celebrated as Utkal Divas.",
+      "D) The newly formed province in 1936 included all the Odia-speaking princely states (Garhjats) completely integrated within its administration."
+    ],
+    "correct_answer": "D",
+    "explanation": "Statement D is NOT correct. When Odisha was formed as a separate province in 1936, it only included the British-administered coastal and some adjoining tracts. The numerous Princely States (Garhjats) remained separate entities under British suzerainty and were integrated into Odisha only after India's independence (1948-49)."
+  },
+  {
+    "question_number": 81,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 2: Public Finance, Budgeting & Taxation",
+    "question": "Which of the following statements regarding different types of Taxes is NOT correct?",
+    "options": [
+      "A) Income Tax and Corporate Tax are examples of Direct Taxes where the incidence and impact fall on the same person.",
+      "B) Goods and Services Tax (GST) is an example of an Indirect Tax.",
+      "C) Direct taxes are generally progressive in nature, meaning higher income brackets pay a higher percentage of tax.",
+      "D) Indirect taxes are considered highly progressive because they impose a heavier proportional burden on the rich than on the poor."
+    ],
+    "correct_answer": "D",
+    "explanation": "Statement D is NOT correct. Indirect taxes (like GST, excise duty) are generally considered regressive, not progressive. A poor person and a rich person pay the exact same amount of GST on a packet of biscuits, meaning the tax takes a much larger percentage of the poor person's income."
+  },
+  {
+    "question_number": 82,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 5: Environmental Governance, Acts & Treaties",
+    "question": "Which of the following statements regarding the Schedules of the Wildlife (Protection) Act, 1972 (prior to the 2022 amendment) is NOT correct?",
+    "options": [
+      "A) Species listed in Schedule I and Part II of Schedule II get absolute protection, and offenses under these prescribe the highest penalties.",
+      "B) Species listed in Schedule III and Schedule IV are also protected, but the penalties are much lower.",
+      "C) Schedule V includes animals that may be hunted, legally known as 'vermin' (e.g., common crows, fruit bats).",
+      "D) Plants are not covered under the Wildlife Protection Act; they are exclusively covered under the Forest Rights Act."
+    ],
+    "correct_answer": "D",
+    "explanation": "Statement D is NOT correct. The Wildlife (Protection) Act, 1972 does cover plants. Specifically, Schedule VI of the Act (prior to recent amendments) listed specified endemic plants whose cultivation, collection, and trade were strictly prohibited or regulated."
+  },
+  {
+    "question_number": 83,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 7: Microeconomics Fundamentals",
+    "question": "Which of the following statements regarding Microeconomic Costs is NOT correct?",
+    "options": [
+      "A) Fixed costs (like factory rent) do not change with the level of output produced in the short run.",
+      "B) Variable costs (like raw materials) increase directly as the volume of output increases.",
+      "C) Marginal Cost is the total overall cost divided by the number of units produced.",
+      "D) In the long run, all costs are considered variable because a firm can adjust all its inputs."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is NOT correct. The total cost divided by units produced is the Average Total Cost, not Marginal Cost. Marginal Cost is the additional cost incurred by producing one more (an extra) unit of a good."
+  },
+  {
+    "question_number": 84,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 1: Ancient & Early Medieval Odisha",
+    "question": "Which of the following statements concerning Kharavela, the Emperor of Kalinga, is NOT correct?",
+    "options": [
+      "A) He was a follower of Jainism and patronized Jain monks by carving caves for them in Udayagiri and Khandagiri.",
+      "B) He successfully invaded Magadha and brought back the sacred image of Kalinga Jina, which had been taken away by the Nanda kings.",
+      "C) The Hathigumpha inscription, detailing his reign year by year, was written in the Sanskrit language.",
+      "D) He belonged to the Mahameghavahana or Chedi dynasty."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is NOT correct. The famous Hathigumpha inscription in the Udayagiri caves was inscribed in the Prakrit language using the Brahmi script, not in Sanskrit."
+  },
+  {
+    "question_number": 85,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 3: Environmental Pollution, Degradation & Health",
+    "question": "Which of the following statements about 'Eutrophication' is NOT correct?",
+    "options": [
+      "A) It is the process by which a water body becomes overly enriched with nutrients, primarily nitrates and phosphates.",
+      "B) It triggers massive overgrowth of algae, known as an algal bloom.",
+      "C) The decomposition of this algae significantly increases the Dissolved Oxygen (DO) levels in the water, highly benefiting aquatic life.",
+      "D) Agricultural runoff containing chemical fertilizers is a primary anthropogenic cause of eutrophication."
+    ],
+    "correct_answer": "C",
+    "explanation": "Statement C is NOT correct. The decomposition of massive algal blooms by bacteria consumes immense amounts of Dissolved Oxygen (DO). This creates hypoxic or anoxic conditions (dead zones) in the water, which kills fish and aquatic life, rather than benefiting them."
+  },
+  {
+    "question_number": 86,
+    "main_topic": "Odisha History and Nationalism",
+    "sub_topic": "Group 2: Late Medieval Dynasties & Culture",
+    "question": "Who was the last independent Hindu King of medieval Odisha who died fighting the Afghan forces of Bengal in 1568?",
+    "options": [
+      "A) Kapilendra Deva",
+      "B) Prataparudra Deva",
+      "C) Mukunda Deva",
+      "D) Govinda Vidyadhara"
+    ],
+    "correct_answer": "C",
+    "explanation": "Mukunda Deva (of the Chalukya dynasty) was the last independent Hindu ruler of Odisha. He died in 1568 in a battle against Ramachandra Bhanja, following which the Afghan rulers of Bengal fully annexed Odisha."
+  },
+  {
+    "question_number": 87,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 3 & 6: Macroeconomic Indicators",
+    "question": "In Macroeconomics, what does the 'Phillips Curve' graphically illustrate?",
+    "options": [
+      "A) The inverse relationship between the rate of unemployment and the rate of inflation.",
+      "B) The relationship between tax rates and total tax revenue collected by the government.",
+      "C) The level of income inequality within a developing nation.",
+      "D) The positive correlation between economic growth and environmental degradation."
+    ],
+    "correct_answer": "A",
+    "explanation": "In macroeconomics, the Phillips Curve shows a historical inverse relationship between unemployment and inflation; when unemployment is low, inflation tends to be high, and vice versa."
+  },
+  {
+    "question_number": 88,
+    "main_topic": "Environmental Ecology, Biodiversity & Climate Change",
+    "sub_topic": "Module 1: Ecological Principles & Ecosystems",
+    "question": "What is the ecological term used to describe the transitional zone or junction between two or more diverse ecosystems (e.g., between a forest and a grassland), which often contains species from both adjacent ecosystems?",
+    "options": [
+      "A) Biome",
+      "B) Ecological Niche",
+      "C) Ecotone",
+      "D) Biosphere"
+    ],
+    "correct_answer": "C",
+    "explanation": "An Ecotone is a transition area between two biological communities, where two communities meet and integrate. Examples include mangroves (between terrestrial and marine ecosystems) and estuaries. They are highly biodiverse."
+  },
+  {
+    "question_number": 89,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 2: Public Finance, Budgeting & Taxation",
+    "question": "The 'Crowding Out' effect in an economy occurs when:",
+    "options": [
+      "A) Too many foreign investors enter the domestic stock market, displacing local investors.",
+      "B) Increased government borrowing leads to higher interest rates, which subsequently reduces private sector investment.",
+      "C) A rapid population boom causes severe resource depletion in urban centers.",
+      "D) The central bank issues too much currency, causing hyperinflation that crowds out savings."
+    ],
+    "correct_answer": "B",
+    "explanation": "The crowding-out effect occurs when massive government borrowing soaks up available financial capital, leading to higher interest rates, which makes it too expensive for the private sector to borrow and invest."
+  },
+  {
+    "question_number": 90,
+    "main_topic": "Economic and Social Development",
+    "sub_topic": "Module 3: Macroeconomics, GDP & Inflation",
+    "question": "Which of the following indices is officially used to calculate the 'GDP Deflator'?",
+    "options": [
+      "A) Consumer Price Index (CPI)",
+      "B) Wholesale Price Index (WPI)",
+      "C) Ratio of Nominal GDP to Real GDP, multiplied by 100",
+      "D) Index of Industrial Production (IIP)"
+    ],
+    "correct_answer": "C",
+    "explanation": "The GDP Deflator is a measure of general price inflation. It is calculated exactly by dividing Nominal GDP (GDP at current prices) by Real GDP (GDP at constant/base-year prices) and multiplying by 100."
+  }
+];
+];
+
+/* =====================================================================
+   DATA ADAPTER
+   ===================================================================== */
+const mockQuestions = rawQuestionBank.map(item => {
+    let correctIndex = item.options.findIndex(opt => opt.trim() === item.correct_answer.trim());
+    if (correctIndex === -1) correctIndex = item.options.findIndex(opt => opt.charAt(0) === item.correct_answer.charAt(0));
+    return {
+        id: item.question_number, section: item.main_topic, subtopic: item.sub_topic,
+        question: item.question, options: item.options, correct: correctIndex !== -1 ? correctIndex : 0, explanation: item.explanation
+    };
+});
+
+/* =====================================================================
+   GLOBAL STATE & CONSTANTS
+   ===================================================================== */
+const ENCRYPTION_KEY = "ExamProSecureKey2026!";
+let currentQIndex = 0; let examTimerInterval; let timeLeft = 1 * 60 * 60 + 45 * 60; 
+let userResponses = {}; let currentExamData = null; let evaluatorMetacognition = {}; 
+
+let radarChartInst = null; let stackedBarChartInst = null;
+let currentDashboardSection = 'Overall'; 
+let currentTableFilter = 'All'; 
+let currentSearchQuery = ''; 
+
+// PROCTORING STATE
+let isExamActive = false;
+let tabSwitchWarnings = 0;
+const MAX_WARNINGS = 3;
+
+/* =====================================================================
+   ANTI-CHEAT PROCTORING LOGIC
+   ===================================================================== */
+   
+// 1. Prevent Right-Click, Copy, Cut, Paste globally IF exam is active
+['copy', 'cut', 'paste', 'contextmenu'].forEach(evt => {
+    document.addEventListener(evt, (e) => {
+        if (isExamActive) {
+            e.preventDefault();
+        }
+    });
+});
+
+// 2. Prevent Tab Switching via Visibility API
+document.addEventListener("visibilitychange", () => {
+    if (isExamActive && document.hidden) {
+        tabSwitchWarnings++;
+        if (tabSwitchWarnings >= MAX_WARNINGS) {
+            alert("🚨 EXAM TERMINATED: You navigated away from the exam window too many times. Your exam is being auto-submitted.");
+            submitExam();
+        } else {
+            alert(`⚠️ WARNING: Tab switching/leaving the window is strictly prohibited!\n\nStrike ${tabSwitchWarnings} of ${MAX_WARNINGS}. Your exam will be auto-submitted on the 3rd strike.`);
+        }
+    }
+});
+
+
+/* =====================================================================
+   UTILITY FUNCTIONS
+   ===================================================================== */
+function switchView(viewId) {
+    document.getElementById('view-home').classList.add('hidden');
+    document.getElementById('view-exam').classList.add('hidden');
+    document.getElementById('view-evaluator').classList.add('hidden');
+    document.getElementById(viewId).classList.remove('hidden');
+}
+
+function formatLabel(str, maxLen = 22) {
+    if (str.length <= maxLen) return str;
+    const words = str.split(' '); let lines = []; let currentLine = '';
+    words.forEach(word => {
+        if ((currentLine + word).length > maxLen) { lines.push(currentLine.trim()); currentLine = word + ' '; } 
+        else { currentLine += word + ' '; }
+    });
+    lines.push(currentLine.trim()); return lines;
+}
+
+function mapConfidenceLabel(val) {
+    if (val === "3") return "High Confidence";
+    if (val === "2") return "Med Confidence";
+    if (val === "1") return "Low Confidence";
+    if (val === "0") return "Zero Confidence";
+    return "Unlogged Conf";
+}
+
+function highlightText(text, query) {
+    if (!query || query.trim() === '') return text;
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return text.replace(regex, `<mark class="bg-yellow-200 text-yellow-900 rounded-sm px-0.5 font-bold shadow-sm">$1</mark>`);
+}
+
+/* =====================================================================
+   MODULE 1: EXAM MODE (ASPIRANT)
+   ===================================================================== */
+function startExam() {
+    switchView('view-exam'); 
+    currentQIndex = 0; 
+    userResponses = {}; 
+    timeLeft = 1 * 60 * 60 + 45 * 60; 
+    document.getElementById('table-search').value = ""; 
+    
+    // Activate Anti-Cheat Guardrails
+    isExamActive = true;
+    tabSwitchWarnings = 0;
+
+    startTimer(); 
+    renderQuestion();
+}
+
+function startTimer() {
+    examTimerInterval = setInterval(() => {
+        timeLeft--;
+        let h = Math.floor(timeLeft / 3600); let m = Math.floor((timeLeft % 3600) / 60); let s = timeLeft % 60;
+        document.getElementById('timer-display').innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        if (timeLeft <= 0) { clearInterval(examTimerInterval); submitExam(); }
+    }, 1000);
+}
+
+function renderQuestion() {
+    const q = mockQuestions[currentQIndex]; const saved = userResponses[q.id] || {};
+    let optionsHtml = '';
+    q.options.forEach((opt, idx) => {
+        const isChecked = saved.answer === idx ? 'checked' : '';
+        optionsHtml += `
+            <label class="block p-4 mb-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition shadow-sm ${isChecked ? 'bg-blue-50 border-blue-400' : ''}">
+                <input type="radio" name="q${q.id}" value="${idx}" class="mr-3" ${isChecked} onchange="saveResponse(${q.id}, ${idx})">
+                ${opt}
+            </label>
+        `;
+    });
+    document.getElementById('question-container').innerHTML = `
+        <span class="text-sm font-bold text-blue-600 uppercase tracking-wider">${q.section} - ${q.subtopic}</span>
+        <div class="font-semibold text-gray-800 text-lg md:text-xl mt-2 mb-6 whitespace-pre-wrap leading-relaxed">${q.id}. ${q.question}</div>
+        <div class="mb-4">${optionsHtml}</div>
+    `;
+    document.getElementById('question-counter').innerText = `Q ${currentQIndex + 1} of ${mockQuestions.length}`;
+    document.getElementById('btn-prev').disabled = currentQIndex === 0;
+    if (currentQIndex === mockQuestions.length - 1) {
+        document.getElementById('btn-next').classList.add('hidden'); document.getElementById('btn-submit').classList.remove('hidden');
+    } else {
+        document.getElementById('btn-next').classList.remove('hidden'); document.getElementById('btn-submit').classList.add('hidden');
+    }
+}
+
+function saveResponse(qId, value) {
+    if (!userResponses[qId]) userResponses[qId] = {}; userResponses[qId].answer = parseInt(value); renderQuestion(); 
+}
+
+function navigate(dir) { currentQIndex += dir; renderQuestion(); }
+
+function submitExam() {
+    clearInterval(examTimerInterval);
+    
+    // Deactivate Anti-Cheat Guardrails so they can use their computer normally after
+    isExamActive = false;
+
+    const payload = { student: "Aspirant_101", date: new Date().toISOString(), timeTaken: (1 * 60 * 60 + 45 * 60) - timeLeft, answers: userResponses, questionsMeta: mockQuestions };
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(payload), ENCRYPTION_KEY).toString();
+    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `Aspirant_101_submission.examdata`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    alert("Exam submitted! The encrypted .examdata file has been downloaded."); switchView('view-home');
+}
+
+/* =====================================================================
+   MODULE 2: EVALUATOR MODE (REVIEWER)
+   ===================================================================== */
+function handleFileUpload(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(e.target.result, ENCRYPTION_KEY);
+            currentExamData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            evaluatorMetacognition = currentExamData.evaluations || {}; 
+            currentDashboardSection = 'Overall'; 
+            currentTableFilter = 'All'; 
+            currentSearchQuery = ''; 
+            document.getElementById('table-search').value = "";
+            
+            renderTableFilters();
+            renderTable(currentExamData); 
+            updateAllCharts(); 
+            
+            document.getElementById('upload-section').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
+            document.getElementById('btn-save-eval').classList.remove('hidden');
+        } catch (err) { alert("Error parsing file."); console.error(err); }
+    };
+    reader.readAsText(file);
+}
+
+function saveEvaluation() {
+    if (!currentExamData) return;
+    currentExamData.evaluations = evaluatorMetacognition; currentExamData.lastEvaluatedDate = new Date().toISOString();
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(currentExamData), ENCRYPTION_KEY).toString();
+    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${currentExamData.student || "Aspirant"}_evaluated_submission.examdata`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    alert("Evaluation progress saved! Updated .examdata downloaded.");
+}
+
+/* --- TABLE FILTER & SEARCH UI LOGIC --- */
+
+function handleSearch(query) {
+    currentSearchQuery = query;
+    renderTable(currentExamData);
+}
+
+function renderTableFilters() {
+    const filtersContainer = document.getElementById('table-filters');
+    if (!filtersContainer || !currentExamData) return;
+    
+    const filters = ['All', 'Incorrect', 'Correct', 'Unattempted'];
+    let html = '';
+    
+    filters.forEach(f => {
+        const isActive = f === currentTableFilter;
+        let baseClasses = "px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border cursor-pointer flex items-center gap-1.5 ";
+        
+        let count = 0;
+        if (f === 'All') {
+            count = currentExamData.questionsMeta.length;
+        } else {
+            count = currentExamData.questionsMeta.filter(q => {
+                const resp = currentExamData.answers[q.id] || {};
+                const isAttempted = resp.answer !== undefined;
+                const isCorrect = isAttempted && resp.answer === q.correct;
+                if (f === 'Correct') return isCorrect;
+                if (f === 'Incorrect') return isAttempted && !isCorrect;
+                if (f === 'Unattempted') return !isAttempted;
+            }).length;
+        }
+
+        if (isActive) {
+            if (f === 'All') baseClasses += "bg-indigo-600 text-white border-indigo-600 shadow-md";
+            else if (f === 'Correct') baseClasses += "bg-green-600 text-white border-green-600 shadow-md";
+            else if (f === 'Incorrect') baseClasses += "bg-red-600 text-white border-red-600 shadow-md";
+            else if (f === 'Unattempted') baseClasses += "bg-gray-500 text-white border-gray-500 shadow-md";
+        } else {
+            baseClasses += "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+        }
+
+        html += `<button onclick="setTableFilter('${f}')" class="${baseClasses}">
+                    ${f} 
+                    <span class="${isActive ? 'bg-white/20' : 'bg-gray-100 text-gray-500'} px-2 py-0.5 rounded-full text-[10px] ml-1">${count}</span>
+                 </button>`;
+    });
+    
+    filtersContainer.innerHTML = html;
+}
+
+function setTableFilter(filter) {
+    currentTableFilter = filter;
+    renderTableFilters();
+    renderTable(currentExamData);
+}
+
+function renderTable(data) {
+    let tableHtml = '';
+
+    const filteredQuestions = data.questionsMeta.filter(q => {
+        let matchesStatus = true;
+        if (currentTableFilter !== 'All') {
+            const resp = data.answers[q.id] || {};
+            const isAttempted = resp.answer !== undefined;
+            const isCorrect = isAttempted && resp.answer === q.correct;
+            if (currentTableFilter === 'Correct') matchesStatus = isCorrect;
+            else if (currentTableFilter === 'Incorrect') matchesStatus = isAttempted && !isCorrect;
+            else if (currentTableFilter === 'Unattempted') matchesStatus = !isAttempted;
+        }
+
+        let matchesSearch = true;
+        if (currentSearchQuery.trim() !== "") {
+            const searchLower = currentSearchQuery.toLowerCase();
+            matchesSearch = q.section.toLowerCase().includes(searchLower) || 
+                            q.subtopic.toLowerCase().includes(searchLower);
+        }
+
+        return matchesStatus && matchesSearch;
+    });
+
+    if (filteredQuestions.length === 0) {
+        tableHtml = `<tr><td colspan="4" class="py-12 text-center text-gray-500 italic bg-gray-50">No questions found matching your criteria.</td></tr>`;
+    } else {
+        filteredQuestions.forEach((q) => {
+            const resp = data.answers[q.id] || {}; 
+            const isAttempted = resp.answer !== undefined; 
+            const isCorrect = isAttempted && resp.answer === q.correct;
+            const meta = evaluatorMetacognition[q.id] || {}; 
+            const selAnalysis = meta.analysis || ""; 
+            const selConfidence = meta.confidence || "";
+            const isSel = (val, target) => val === target ? "selected" : "";
+
+            const displaySection = highlightText(q.section, currentSearchQuery);
+            const displaySubtopic = highlightText(q.subtopic, currentSearchQuery);
+
+            let optionsListHtml = q.options.map((opt, idx) => {
+                let isChosen = resp.answer === idx;
+                let isActualCorrect = q.correct === idx;
+                
+                let liClass = "border-transparent text-gray-600";
+                let badge = "";
+                let badgeClass = "hidden";
+                
+                if (isActualCorrect && isChosen) {
+                    liClass = "bg-green-50 border-green-200 text-green-900 font-semibold";
+                    badge = "Correct Choice";
+                    badgeClass = "bg-green-200 text-green-800";
+                } else if (isActualCorrect && !isChosen) {
+                    liClass = "bg-blue-50 border-blue-200 text-blue-900 font-medium";
+                    badge = "Right Answer";
+                    badgeClass = "bg-blue-200 text-blue-800";
+                } else if (!isActualCorrect && isChosen) {
+                    liClass = "bg-red-50 border-red-200 text-red-900 font-medium";
+                    badge = "Aspirant's Choice";
+                    badgeClass = "bg-red-200 text-red-800";
+                }
+                
+                return `
+                    <li class="p-3 rounded-lg border ${liClass} flex justify-between items-start gap-3 transition-colors">
+                        <span class="flex-1 leading-snug">${opt}</span>
+                        <span class="${badgeClass} text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full shrink-0">${badge}</span>
+                    </li>`;
+            }).join('');
+
+            let searchQuery = encodeURIComponent(`${q.question} ${q.options.join(" ")}`);
+            
+            let statusHtml = !isAttempted 
+                ? `<span class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Unattempted</span>` 
+                : (isCorrect 
+                    ? `<span class="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-green-200"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Correct</span>` 
+                    : `<span class="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Incorrect</span>`);
+
+            tableHtml += `
+                <tr class="border-b border-gray-100 align-top bg-white hover:bg-slate-50/50">
+                    <td class="py-6 px-6 font-bold text-gray-300 text-2xl w-16">${q.id}</td>
+                    <td class="py-6 px-6">
+                        <div class="flex flex-wrap items-center gap-2 mb-4">
+                            <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">${displaySection}</span>
+                            <span class="text-gray-300 text-xs">&rsaquo;</span>
+                            <span class="text-gray-500 text-xs font-semibold">${displaySubtopic}</span>
+                        </div>
+                        <div class="font-semibold text-gray-900 text-[15px] mb-5 whitespace-pre-wrap leading-relaxed">${q.question}</div>
+                        <ul class="space-y-2.5 mb-5 w-full max-w-2xl">${optionsListHtml}</ul>
+                        <div class="text-sm text-amber-900 bg-amber-50/50 p-4 rounded-lg border border-amber-200/60 shadow-sm max-w-3xl">
+                            <span class="font-bold uppercase tracking-wider text-[11px] text-amber-700 block mb-1">Explanation</span>
+                            <span class="leading-relaxed">${q.explanation}</span>
+                        </div>
+                        <div class="mt-4"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-semibold transition-colors"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>Deep Dive via Google</a></div>
+                    </td>
+                    <td class="py-6 px-6">${statusHtml}</td>
+                    <td class="py-6 px-6 bg-slate-50/80 border-l border-gray-100">
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Root Cause Analysis</label>
+                                <select onchange="updateMetaTracker(${q.id}, 'analysis', this.value)" class="custom-select w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 shadow-sm appearance-none hover:border-indigo-300 transition-colors cursor-pointer font-medium">
+                                    <option value="" disabled ${isSel("", selAnalysis)}>Discuss & Select...</option>
+                                    <optgroup label="Success Metrics">
+                                        <option value="Mastery" ${isSel("Mastery", selAnalysis)}>Mastery / Deep Knowledge</option>
+                                        <option value="Educated Guess" ${isSel("Educated Guess", selAnalysis)}>Educated Guess</option>
+                                        <option value="Lucky Guess" ${isSel("Lucky Guess", selAnalysis)}>Lucky Guess</option>
+                                    </optgroup>
+                                    <optgroup label="Error Metrics">
+                                        <option value="Conceptual Error" ${isSel("Conceptual Error", selAnalysis)}>Conceptual Error</option>
+                                        <option value="Misread" ${isSel("Misread", selAnalysis)}>Misread / Silly Mistake</option>
+                                        <option value="Unaware" ${isSel("Unaware", selAnalysis)}>Unaware / Blind Guess</option>
+                                        <option value="Topic Not Covered" ${isSel("Topic Not Covered", selAnalysis)}>Topic Not Covered</option>
+                                        <option value="Timeout" ${isSel("Timeout", selAnalysis)}>Time Crunch / Timeout</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Aspirant's Confidence</label>
+                                <select onchange="updateMetaTracker(${q.id}, 'confidence', this.value)" class="custom-select w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 shadow-sm appearance-none hover:border-indigo-300 transition-colors cursor-pointer font-medium">
+                                    <option value="" disabled ${isSel("", selConfidence)}>Discuss & Select...</option>
+                                    <option value="3" ${isSel("3", selConfidence)}>High (100% Sure)</option>
+                                    <option value="2" ${isSel("2", selConfidence)}>Medium (50/50)</option>
+                                    <option value="1" ${isSel("1", selConfidence)}>Low (Total Guess)</option>
+                                    <option value="0" ${isSel("0", selConfidence)}>Zero (Blanked Out)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    document.getElementById('breakdown-table-body').innerHTML = tableHtml;
+}
+
+function updateMetaTracker(qId, key, value) {
+    if (!evaluatorMetacognition[qId]) evaluatorMetacognition[qId] = {};
+    evaluatorMetacognition[qId][key] = value; updateAllCharts(); 
+}
+
+/* =====================================================================
+   DATA PROCESSING & CHART RENDERING
+   ===================================================================== */
+window.globalSubtopicStats = {};
+window.globalSankeyFlows = {};
+
+function updateAllCharts() {
+    if(!currentExamData) return;
+
+    const sectionStats = {};
+    const subtopicStats = { 'Overall': {} }; 
+    const sankeyFlows = { 'Overall': [] };
+
+    currentExamData.questionsMeta.forEach(q => {
+        const resp = currentExamData.answers[q.id] || {};
+        const isAttempted = resp.answer !== undefined;
+        const isCorrect = isAttempted && resp.answer === q.correct;
+        const meta = evaluatorMetacognition[q.id] || {};
+
+        if (!sectionStats[q.section]) sectionStats[q.section] = { correct: 0, wrong: 0, unattempted: 0 };
+        if (!isAttempted) sectionStats[q.section].unattempted++;
+        else if (isCorrect) sectionStats[q.section].correct++;
+        else sectionStats[q.section].wrong++;
+
+        if (!subtopicStats[q.section]) subtopicStats[q.section] = {};
+        if (!subtopicStats[q.section][q.subtopic]) subtopicStats[q.section][q.subtopic] = { total: 0, correct: 0, confSum: 0, confCount: 0 };
+        if (!subtopicStats['Overall'][q.subtopic]) subtopicStats['Overall'][q.subtopic] = { total: 0, correct: 0, confSum: 0, confCount: 0 };
+
+        subtopicStats[q.section][q.subtopic].total++;
+        subtopicStats['Overall'][q.subtopic].total++;
+        if (isCorrect) {
+            subtopicStats[q.section][q.subtopic].correct++;
+            subtopicStats['Overall'][q.subtopic].correct++;
+        }
+        if (meta.confidence) {
+            subtopicStats[q.section][q.subtopic].confSum += parseInt(meta.confidence);
+            subtopicStats[q.section][q.subtopic].confCount++;
+            subtopicStats['Overall'][q.subtopic].confSum += parseInt(meta.confidence);
+            subtopicStats['Overall'][q.subtopic].confCount++;
+        }
+
+        if (!sankeyFlows[q.section]) sankeyFlows[q.section] = [];
+        if (meta.confidence && meta.analysis) {
+            let confLabel = mapConfidenceLabel(meta.confidence);
+            let rootLabel = meta.analysis;
+            let outLabel = isCorrect ? "Correct" : "Incorrect";
+
+            sankeyFlows[q.section].push({ source: confLabel, target: rootLabel });
+            sankeyFlows[q.section].push({ source: rootLabel, target: outLabel });
+            sankeyFlows['Overall'].push({ source: confLabel, target: rootLabel });
+            sankeyFlows['Overall'].push({ source: rootLabel, target: outLabel });
+        }
+    });
+
+    window.globalSubtopicStats = subtopicStats;
+    window.globalSankeyFlows = sankeyFlows;
+
+    drawStackedBarChart(sectionStats);
+    renderDashboardTabs();
+    drawDynamicCharts(currentDashboardSection);
+}
+
+Chart.defaults.elements.bar.borderWidth = 2; Chart.defaults.elements.bar.borderRadius = 4;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+
+function renderDashboardTabs() {
+    const tabsContainer = document.getElementById('dashboard-tabs');
+    const sections = Object.keys(window.globalSubtopicStats);
+    let tabsHtml = '';
+    sections.forEach(sec => {
+        const isActive = sec === currentDashboardSection;
+        const activeClass = isActive ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200';
+        tabsHtml += `<button onclick="setDashboardSection('${sec}')" class="px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${activeClass}">${sec}</button>`;
+    });
+    tabsContainer.innerHTML = tabsHtml;
+}
+
+function setDashboardSection(sec) {
+    currentDashboardSection = sec;
+    renderDashboardTabs();
+    drawDynamicCharts(sec);
+}
+
+function drawDynamicCharts(sectionKey) {
+    drawRadarChart(sectionKey);
+    drawSankeyDiagram(sectionKey);
+}
+
+function drawRadarChart(sectionKey) {
+    const data = window.globalSubtopicStats[sectionKey]; if(!data) return;
+    const ctx = document.getElementById('radarChart').getContext('2d');
+    if(radarChartInst) radarChartInst.destroy();
+
+    const labels = Object.keys(data).map(l => formatLabel(l));
+    const accuracyData = Object.keys(data).map(l => (data[l].correct / data[l].total) * 100);
+    const confidenceData = Object.keys(data).map(l => {
+        let count = data[l].confCount; if(count === 0) return 0; return ((data[l].confSum / count) / 3) * 100;
+    });
+
+    radarChartInst = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Accuracy (%)', data: accuracyData, backgroundColor: 'rgba(79, 70, 229, 0.4)', borderColor: 'rgba(67, 56, 202, 1)' },
+                { label: 'Logged Confidence (%)', data: confidenceData, backgroundColor: 'rgba(245, 158, 11, 0.4)', borderColor: 'rgba(217, 119, 6, 1)' }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false }, pointLabels: { font: { size: 10 } } } },
+            plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)}%` } } }
+        }
+    });
+}
+
+function drawStackedBarChart(data) {
+    const ctx = document.getElementById('stackedBarChart').getContext('2d');
+    if(stackedBarChartInst) stackedBarChartInst.destroy();
+
+    const labels = Object.keys(data).map(l => formatLabel(l));
+    const correctData = Object.keys(data).map(l => data[l].correct);
+    const wrongData = Object.keys(data).map(l => data[l].wrong);
+    const unattemptedData = Object.keys(data).map(l => data[l].unattempted);
+
+    stackedBarChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Correct', data: correctData, backgroundColor: '#22c55e', barPercentage: 0.6 },
+                { label: 'Incorrect', data: wrongData, backgroundColor: '#ef4444', barPercentage: 0.6 },
+                { label: 'Unattempted', data: unattemptedData, backgroundColor: '#d1d5db', barPercentage: 0.6 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+}
+
+function drawSankeyDiagram(sectionKey) {
+    const rawFlows = window.globalSankeyFlows[sectionKey];
+    const container = document.getElementById('sankeyChart');
+
+    if(!rawFlows || rawFlows.length === 0) {
+        Plotly.purge(container);
+        container.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400 italic">No cognitive data logged for ${sectionKey} yet. Select options in the table above.</div>`;
+        return;
+    }
+
+    const linkMap = {};
+    rawFlows.forEach(flow => {
+        const key = `${flow.source}->${flow.target}`;
+        linkMap[key] = (linkMap[key] || 0) + 1;
+    });
+
+    const nodeNames = [];
+    rawFlows.forEach(flow => {
+        if(!nodeNames.includes(flow.source)) nodeNames.push(flow.source);
+        if(!nodeNames.includes(flow.target)) nodeNames.push(flow.target);
+    });
+
+    const sourceArr = []; const targetArr = []; const valueArr = [];
+    Object.keys(linkMap).forEach(key => {
+        const parts = key.split('->');
+        sourceArr.push(nodeNames.indexOf(parts[0]));
+        targetArr.push(nodeNames.indexOf(parts[1]));
+        valueArr.push(linkMap[key]);
+    });
+
+    const nodeColors = nodeNames.map(name => {
+        if(name.includes("High")) return '#4f46e5'; 
+        if(name.includes("Med")) return '#8b5cf6'; 
+        if(name.includes("Low") || name.includes("Zero")) return '#f59e0b'; 
+        if(["Mastery", "Educated Guess", "Lucky Guess", "Correct"].includes(name)) return '#22c55e'; 
+        return '#ef4444'; 
+    });
+
+    const data = {
+      type: "sankey",
+      orientation: "h",
+      node: {
+        pad: 20, thickness: 30,
+        line: { color: "black", width: 0.5 },
+        label: nodeNames, color: nodeColors
+      },
+      link: {
+        source: sourceArr, target: targetArr, value: valueArr,
+        color: "rgba(200, 200, 200, 0.4)" 
+      }
+    };
+
+    const layout = {
+      font: { size: 12, family: 'Inter' },
+      margin: { t: 20, l: 20, r: 20, b: 20 }
+    };
+
+    Plotly.newPlot(container, [data], layout, {responsive: true});
+}
+</script>
+</body>
+</html>
