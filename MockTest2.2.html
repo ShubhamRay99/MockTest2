@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdTech Assessor Pro - 3D Analytics Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .hidden { display: none !important; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        
+        /* Smooth transitions for interactive rows */
+        tbody tr { transition: all 0.2s ease-in-out; }
+        tbody tr:hover { transform: scale(1.005); box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05); z-index: 10; position: relative; background-color: #ffffff; }
+        
+        /* Custom Dropdown Arrow SVG */
+        .custom-select {
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236B7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem top 50%;
+            background-size: 0.65rem auto;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <div id="view-home" class="min-h-screen flex items-center justify-center p-6">
+        <div class="glass-panel p-10 rounded-2xl shadow-xl max-w-lg w-full text-center">
+            <h1 class="text-3xl font-bold text-blue-700 mb-2">EdTech Assessor Pro</h1>
+            <p class="text-gray-500 mb-8">Select your portal to proceed.</p>
+            <div class="space-y-4">
+                <button onclick="startExam()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-lg shadow-blue-500/30">
+                    Start Exam (Aspirant Mode)
+                </button>
+                <button onclick="switchView('view-evaluator')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-lg shadow-emerald-500/30">
+                    Upload & Review (Evaluator Mode)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-exam" class="hidden min-h-screen p-6 flex flex-col max-w-4xl mx-auto select-none">
+        <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">Mock Exam: General Studies</h2>
+                <p id="exam-status" class="text-sm text-gray-500">Attempt all questions. Window switching & copy-pasting is strictly prohibited.</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Time Remaining</p>
+                <p id="timer-display" class="text-2xl font-bold text-red-600">00:40:00</p>
+            </div>
+        </header>
+
+        <main class="flex-1 bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+            <div id="question-container">
+                </div>
+        </main>
+
+        <footer class="mt-6 flex justify-between items-center">
+            <button id="btn-prev" onclick="navigate(-1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-6 rounded-lg transition disabled:opacity-50">Previous</button>
+            <span id="question-counter" class="font-medium text-gray-500">Q 1 of X</span>
+            <button id="btn-next" onclick="navigate(1)" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition">Next</button>
+            <button id="btn-submit" onclick="submitExam()" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-lg transition">Submit Exam</button>
+        </footer>
+    </div>
+
+    <div id="view-evaluator" class="hidden min-h-screen p-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <header class="flex justify-between items-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">Evaluator Dashboard</h1>
+                <div class="space-x-4">
+                    <button id="btn-save-eval" onclick="saveEvaluation()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow transition font-medium">
+                        💾 Save & Export Evaluation
+                    </button>
+                    <button onclick="switchView('view-home')" class="text-blue-600 hover:underline font-medium">Exit Dashboard</button>
+                </div>
+            </header>
+
+            <div id="upload-section" class="bg-white p-10 rounded-xl shadow-sm border border-gray-200 text-center mb-8">
+                <h3 class="text-xl font-semibold mb-4">Import Exam Data (.examdata)</h3>
+                <input type="file" id="file-upload" accept=".examdata" class="hidden" onchange="handleFileUpload(event)">
+                <label for="file-upload" class="cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 py-3 px-8 rounded-lg inline-block font-medium transition shadow-md">
+                    Browse & Upload File
+                </label>
+            </div>
+
+            <div id="dashboard-content" class="hidden space-y-8">
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="text-lg font-bold">Sub-Topic Performance Radar</h3>
+                                <p class="text-xs text-gray-500">Accuracy vs Confidence per sub-topic.</p>
+                            </div>
+                        </div>
+                        <div class="relative flex-1 w-full flex justify-center min-h-[300px]">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+                        <h3 class="text-lg font-bold mb-2">Section Breakdown</h3>
+                        <p class="text-xs text-gray-500 mb-4">Attempted (Correct/Wrong) vs Unattempted.</p>
+                        <div class="relative flex-1 w-full min-h-[300px]">
+                            <canvas id="stackedBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                    <h4 class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wider">Filter Analytics by Topic</h4>
+                    <div id="dashboard-tabs" class="flex justify-center flex-wrap gap-2">
+                        </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+                    
+                    <div class="p-5 border-b border-gray-100 bg-white flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">Detailed 1-on-1 Review</h3>
+                            <p class="text-xs text-gray-500">Log Metacognition & Root Causes here.</p>
+                        </div>
+                        
+                        <div class="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
+                            <div class="relative w-full md:w-64 shrink-0">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                                </div>
+                                <input type="text" id="table-search" oninput="handleSearch(this.value)" class="block w-full p-2 pl-9 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm" placeholder="Search Topics & Sub-topics...">
+                            </div>
+
+                            <div id="table-filters" class="flex flex-wrap gap-2 w-full md:w-auto"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto max-h-[650px] overflow-y-auto">
+                        <table class="min-w-full text-left border-collapse">
+                            <thead class="sticky top-0 bg-gray-50/95 backdrop-blur z-20 shadow-sm border-b border-gray-200">
+                                <tr class="text-gray-600 text-sm uppercase tracking-wider">
+                                    <th class="py-4 px-6 font-semibold w-16">Q#</th>
+                                    <th class="py-4 px-6 font-semibold w-1/2">Question Details & Explanation</th>
+                                    <th class="py-4 px-6 font-semibold w-32">Status</th>
+                                    <th class="py-4 px-6 font-semibold w-72">Collaborative Tracker</th>
+                                </tr>
+                            </thead>
+                            <tbody id="breakdown-table-body" class="text-sm">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 class="text-lg font-bold mb-2">Cognitive Flow Analysis (Sankey Diagram)</h3>
+                    <p class="text-xs text-gray-500 mb-4">Visualizes the pipeline from Confidence → Root Cause → Final Outcome. Controlled by the Topic Filter above.</p>
+                    <div id="sankeyChart" class="w-full h-[400px]"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+<script>
+/* =====================================================================
+   RAW DATA BANK
+   ===================================================================== */
+const rawQuestionBank = [
+  {
+    "question_number": 1,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Data Interpretation",
+    "question": "A table gives the percentage distribution of population of five states based on the poverty line. For State P, 48% of the population is Below Poverty Line (BPL). The proportion of Males to Females below the poverty line is 5:6. If the male population below the poverty line for State P is 2.4 million, what is the total population of State P?",
+    "options": [
+      "A) 11 million",
+      "B) 10 million",
+      "C) 12 million",
+      "D) 11.45 million"
+    ],
+    "correct_answer": "A) 11 million",
+    "explanation": "Let the total BPL population be 11 units (since M:F is 5:6). The male BPL population is 5 units, which is given as 2.4 million. 1 unit = 2.4 / 5 = 0.48 million. Total BPL population = 11 * 0.48 = 5.28 million. We know BPL is 48% of the total population of State P. Let total population be T. 48% of T = 5.28 million. T = 5.28 / 0.48 = 11 million."
+  },
+  {
+    "question_number": 2,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Data Interpretation",
+    "question": "Based on the same poverty distribution table: For State R, 25% of the population is Below Poverty Line. The ratio of Males to Females below the poverty line is 2:3. If the male population below the poverty line in State R is 4 million, what is the total population of State R?",
+    "options": [
+      "A) 60 million",
+      "B) 40 million",
+      "C) 50 million",
+      "D) 48 million"
+    ],
+    "correct_answer": "B) 40 million",
+    "explanation": "The BPL M:F ratio is 2:3, totaling 5 parts. Males represent 2 parts, equal to 4 million. Therefore, 1 part = 2 million. Total BPL population (5 parts) = 5 * 2 = 10 million. The BPL population is 25% of State R's total population. Therefore, 25% of Total = 10 million, which means Total = 10 * 4 = 40 million."
+  },
+  {
+    "question_number": 3,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Data Interpretation",
+    "question": "A bar graph shows Income and Expenditure (in lakhs). In 2001, Company M had an Income of 50 and Expenditure of 45. Company N had an Income of 40 and Expenditure of 35. The profit percent is calculated as ((Income - Expenditure) / Expenditure) * 100. What was the approximate aggregate profit percentage of companies M and N taken together?",
+    "options": [
+      "A) 10%",
+      "B) 12.5%",
+      "C) 11.11%",
+      "D) 15%"
+    ],
+    "correct_answer": "B) 12.5%",
+    "explanation": "Total Income for M and N = 50 + 40 = 90. Total Expenditure for M and N = 45 + 35 = 80. Aggregate Profit = Total Income - Total Expenditure = 90 - 80 = 10. Aggregate Profit Percentage = (Aggregate Profit / Total Expenditure) * 100 = (10 / 80) * 100 = 1/8 * 100 = 12.5%."
+  },
+  {
+    "question_number": 4,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Data Interpretation",
+    "question": "Caselet: An organisation consists of 2400 employees working in various departments. The ratio of total male to female employees in the organisation is 5:3 respectively. 12 percent of the total males work in the HR department. The ratio of males to females working in the HR department is 6:11. What is the total number of females working in the HR department?",
+    "options": [
+      "A) 180",
+      "B) 330",
+      "C) 216",
+      "D) 363"
+    ],
+    "correct_answer": "B) 330",
+    "explanation": "Total employees = 2400. Ratio of M:F = 5:3. Total males = (5/8) * 2400 = 1500. Total females = (3/8) * 2400 = 900. Males in HR = 12% of 1500 = 180. The ratio of males to females in HR is 6:11. If 6 parts = 180, then 1 part = 30. Therefore, females in HR (11 parts) = 11 * 30 = 330."
+  },
+  {
+    "question_number": 5,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Data Interpretation",
+    "question": "A table gives data about different schools. School A has 500 boys. The ratio of boys to girls in School A is 2:3. The monthly fee for a boy is Rs 5 and for a girl is Rs 3. What is the total monthly fee collection for School A?",
+    "options": [
+      "A) Rs 2500",
+      "B) Rs 4500",
+      "C) Rs 4750",
+      "D) Rs 5000"
+    ],
+    "correct_answer": "C) Rs 4750",
+    "explanation": "Number of boys in School A = 500. Ratio of boys to girls = 2:3. If 2 parts = 500, then 1 part = 250. Number of girls (3 parts) = 3 * 250 = 750. Total fee from boys = 500 * Rs 5 = Rs 2500. Total fee from girls = 750 * Rs 3 = Rs 2250. Total fee collection = 2500 + 2250 = Rs 4750."
+  },
+  {
+    "question_number": 6,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Number System & Simplification",
+    "question": "Evaluate using BODMAS rules and algebraic identities: (888 * 888 * 888 - 222 * 222 * 222) / (888 * 888 + 888 * 222 + 222 * 222) = ?",
+    "options": [
+      "A) 1110",
+      "B) 4",
+      "C) 16",
+      "D) 666"
+    ],
+    "correct_answer": "D) 666",
+    "explanation": "The expression follows the algebraic identity: (a³ - b³) / (a² + ab + b²). The expansion of (a³ - b³) is (a - b)(a² + ab + b²). When divided by (a² + ab + b²), the term cancels out, leaving exactly (a - b). Here, a = 888 and b = 222. So, 888 - 222 = 666."
+  },
+  {
+    "question_number": 7,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Number System & Simplification",
+    "question": "Which one is the highest among the following fractions: 1/2, 2/3, 2/5, 4/7?",
+    "options": [
+      "A) 1/2",
+      "B) 2/3",
+      "C) 2/5",
+      "D) 4/7"
+    ],
+    "correct_answer": "B) 2/3",
+    "explanation": "Convert each fraction to a decimal or percentage to compare. 1/2 = 0.50 (50%); 2/3 = 0.666... (66.67%); 2/5 = 0.40 (40%); 4/7 ≈ 0.571 (57.1%). The highest value is 0.666..., which corresponds to 2/3."
+  },
+  {
+    "question_number": 8,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Number System & Simplification",
+    "question": "The LCM of two prime numbers x and y is 161. If x > y, then what is the value of the expression 15y - 7x?",
+    "options": [
+      "A) 74",
+      "B) -56",
+      "C) -32",
+      "D) 38"
+    ],
+    "correct_answer": "B) -56",
+    "explanation": "Since x and y are prime numbers, their LCM is simply their product. Thus, x * y = 161. The prime factors of 161 are 23 and 7. Since x > y, we assign x = 23 and y = 7. We need to find the value of 15y - 7x. Substituting the values: 15(7) - 7(23) = 105 - 161 = -56."
+  },
+  {
+    "question_number": 9,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Number System & Simplification",
+    "question": "Find the unit digit of the simplified mathematical expression: 77 * 88 + 66 * 55",
+    "options": [
+      "A) 7",
+      "B) 6",
+      "C) 5",
+      "D) 0"
+    ],
+    "correct_answer": "B) 6",
+    "explanation": "To find the unit digit of a sum of products, multiply the unit digits of the respective terms. For 77 * 88, the unit digit is 7 * 8 = 56, so the unit digit is 6. For 66 * 55, the unit digit is 6 * 5 = 30, so the unit digit is 0. Adding these resulting unit digits: 6 + 0 = 6."
+  },
+  {
+    "question_number": 10,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Number System & Simplification",
+    "question": "What is the least possible number which, when divided by 2, 3, 4, 5, and 6, leaves the remainders 1, 2, 3, 4, and 5 respectively?",
+    "options": [
+      "A) 60",
+      "B) 61",
+      "C) 59",
+      "D) 69"
+    ],
+    "correct_answer": "C) 59",
+    "explanation": "Notice the common difference between the divisors and their respective remainders: (2-1)=1, (3-2)=1, (4-3)=1, (5-4)=1, (6-5)=1. The required number takes the form LCM(2, 3, 4, 5, 6) - K, where K is the common difference (1). The LCM of 2, 3, 4, 5, and 6 is 60. Therefore, the number is 60 - 1 = 59."
+  },
+  {
+    "question_number": 11,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Commercial Mathematics",
+    "question": "The population of a town is decreasing at a rate of 10% per annum. If the population 2 years ago was 20,000, then what is the present population?",
+    "options": [
+      "A) 15,000",
+      "B) 15,200",
+      "C) 16,000",
+      "D) 16,200"
+    ],
+    "correct_answer": "D) 16,200",
+    "explanation": "The population follows the compound depreciation formula: P_new = P_old * (1 - R/100)^T. P_new = 20000 * (1 - 10/100)^2 = 20000 * (0.9)^2 = 20000 * 0.81 = 16,200."
+  },
+  {
+    "question_number": 12,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Commercial Mathematics",
+    "question": "By selling an article for Rs. 96, double the profit is obtained than the profit that would have been obtained by selling it for Rs. 84. What is the cost price of the article?",
+    "options": [
+      "A) Rs. 72.00",
+      "B) Rs. 75.00",
+      "C) Rs. 70.00",
+      "D) Rs. 68.00"
+    ],
+    "correct_answer": "A) Rs. 72.00",
+    "explanation": "Let the Cost Price (CP) be x. Profit 1 (when sold at 96) = 96 - x. Profit 2 (when sold at 84) = 84 - x. According to the question, 96 - x = 2 * (84 - x). Solving this: 96 - x = 168 - 2x. Bringing x terms to one side: 2x - x = 168 - 96, which gives x = 72. The CP is Rs 72."
+  },
+  {
+    "question_number": 13,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Commercial Mathematics",
+    "question": "For a certain article, if the discount offered is 25%, the profit made is 25%. If the discount is reduced to 10%, then what will be the new profit percentage?",
+    "options": [
+      "A) 10%",
+      "B) 20%",
+      "C) 35%",
+      "D) 50%"
+    ],
+    "correct_answer": "D) 50%",
+    "explanation": "Let the Cost Price (CP) be 100. Since profit is 25%, the Selling Price (SP) is 125. The discount is 25% on the Marked Price (MP), so SP = 75% of MP. Therefore, 125 = 0.75 * MP, making MP = 125 / 0.75 = 166.67. If the discount is 10%, the new SP = 90% of MP = 0.90 * 166.67 = 150. Since CP is 100 and new SP is 150, the new profit percentage is 50%."
+  },
+  {
+    "question_number": 14,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Commercial Mathematics",
+    "question": "A man sells two wrist watches, one at a profit of 10% and the other at a loss of 10%. The selling price of each watch is exactly Rs 200. What is the overall percentage of profit or loss in the transaction?",
+    "options": [
+      "A) 1% profit",
+      "B) 1% loss",
+      "C) 2% profit",
+      "D) 2% loss"
+    ],
+    "correct_answer": "B) 1% loss",
+    "explanation": "When two items are sold at the same Selling Price (SP), and one generates a profit of x% while the other generates a loss of x%, the net transaction always results in a loss. The universal formula for this net loss percentage is (x^2) / 100. Here x = 10, so Net Loss = (10^2) / 100 = 100 / 100 = 1% loss."
+  },
+  {
+    "question_number": 15,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Commercial Mathematics",
+    "question": "An error of 2% in excess is made while measuring the side of a square. What is the percentage of error in the calculated area of the square?",
+    "options": [
+      "A) 2%",
+      "B) 2.02%",
+      "C) 4%",
+      "D) 4.04%"
+    ],
+    "correct_answer": "D) 4.04%",
+    "explanation": "Let the original side be 100 units. Original Area = 100 * 100 = 10000. Measured side = 100 + 2% = 102. Erroneous calculated Area = 102 * 102 = 10404. Error = 10404 - 10000 = 404. Percentage error = (404 / 10000) * 100 = 4.04%. Alternatively, use the successive percentage formula: A + B + (AB)/100 = 2 + 2 + (2*2)/100 = 4 + 0.04 = 4.04%."
+  },
+  {
+    "question_number": 16,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Ratio, Proportion & Mixtures",
+    "question": "The incomes of A, B, and C are in the ratio 12:9:7, and their spendings are in the ratio 15:9:8. If A saves exactly 25% of his income, what is the ratio of the savings of A, B, and C?",
+    "options": [
+      "A) 11:13:18",
+      "B) 15:18:11",
+      "C) 16:17:21",
+      "D) 13:16:11"
+    ],
+    "correct_answer": "B) 15:18:11",
+    "explanation": "Let incomes be 12x, 9x, 7x and expenditures be 15y, 9y, 8y. A saves 25%, meaning A's expenditure is 75% of his income. So, 15y = 0.75 * 12x = 9x. Therefore, y/x = 9/15 = 3/5. Let x = 5 and y = 3. Incomes are 60, 45, 35. Expenditures are 45, 27, 24. Savings = Income - Expenditure. A's savings = 60 - 45 = 15. B's savings = 45 - 27 = 18. C's savings = 35 - 24 = 11. The ratio is 15:18:11."
+  },
+  {
+    "question_number": 17,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Ratio, Proportion & Mixtures",
+    "question": "6 litres of a 20% solution of alcohol in water are mixed with 4 litres of a 60% solution of alcohol in water. What is the percentage of alcoholic strength in the final mixture?",
+    "options": [
+      "A) 80",
+      "B) 40",
+      "C) 36",
+      "D) 48"
+    ],
+    "correct_answer": "C) 36",
+    "explanation": "Alcohol in the first mixture = 20% of 6 L = 1.2 L. Alcohol in the second mixture = 60% of 4 L = 2.4 L. Total alcohol = 1.2 + 2.4 = 3.6 L. Total volume of the mixture = 6 + 4 = 10 L. Alcoholic strength percentage = (3.6 / 10) * 100 = 36%."
+  },
+  {
+    "question_number": 18,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Ratio, Proportion & Mixtures",
+    "question": "A trader mixes 26 kg of rice at Rs. 20 per kg with 30 kg of rice of another variety at Rs. 36 per kg. If he sells the entire mixture at Rs. 30 per kg, what is his profit percent?",
+    "options": [
+      "A) No profit, no loss",
+      "B) 5%",
+      "C) 8%",
+      "D) 10%"
+    ],
+    "correct_answer": "B) 5%",
+    "explanation": "Total Cost Price (CP) = (26 kg * Rs 20) + (30 kg * Rs 36) = 520 + 1080 = Rs 1600. Total quantity = 26 + 30 = 56 kg. Selling Price (SP) = 56 kg * Rs 30 = Rs 1680. Profit = SP - CP = 1680 - 1600 = Rs 80. Profit Percent = (Profit / CP) * 100 = (80 / 1600) * 100 = 5%."
+  },
+  {
+    "question_number": 19,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Ratio, Proportion & Mixtures",
+    "question": "X and Y put in Rs. 3,000 and Rs. 4,000 respectively into a business. X reinvests his share of the first year's total profit of Rs. 2,100 into the business, whereas Y does not reinvest. In what ratio should they share the second year's profit?",
+    "options": [
+      "A) 39:40",
+      "B) 3:4",
+      "C) 3:7",
+      "D) 40:79"
+    ],
+    "correct_answer": "A) 39:40",
+    "explanation": "First-year investment ratio = 3000:4000 = 3:4. X's share of the Rs 2100 profit = (3/7) * 2100 = Rs 900. X reinvests this amount, making X's new capital = 3000 + 900 = Rs 3900. Y's capital remains Rs 4000. The new ratio for the second year is 3900:4000, simplifying to 39:40."
+  },
+  {
+    "question_number": 20,
+    "main_topic": "Quantitative Aptitude & Data Interpretation",
+    "sub_topic": "Ratio, Proportion & Mixtures",
+    "question": "A milkman has 20 litres of pure milk which costs Rs 18 per litre. He mixes 5 litres of water, which is freely available, into it. What is his profit percentage if he sells the entire mixture at the original cost price?",
+    "options": [
+      "A) 20%",
+      "B) 25%",
+      "C) 5%",
+      "D) 33.33%"
+    ],
+    "correct_answer": "B) 25%",
+    "explanation": "Total Cost Price (CP) of 20 L pure milk = 20 * 18 = Rs 360. Water costs Rs 0. Total volume of mixture = 20 + 5 = 25 L. Selling Price (SP) of mixture at cost price = 25 * 18 = Rs 450. Profit = 450 - 360 = Rs 90. Profit Percentage = (90 / 360) * 100 = 25%."
+  },
+  {
+    "question_number": 21,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "History, Generations & Types of Computers",
+    "question": "In the evolution of computer generations, which generation marked the transition from bulky, heat-generating systems to more compact units through the invention and use of Transistors?",
+    "options": [
+      "A) First Generation",
+      "B) Second Generation",
+      "C) Third Generation",
+      "D) Fourth Generation"
+    ],
+    "correct_answer": "B) Second Generation",
+    "explanation": "First generation computers used vacuum tubes. Second generation computers replaced vacuum tubes with transistors, making computers smaller, faster, cheaper, and more energy-efficient."
+  },
+  {
+    "question_number": 22,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "History, Generations & Types of Computers",
+    "question": "The defining hardware characteristic of Fourth Generation computers was the introduction of:",
+    "options": [
+      "A) Vacuum Tubes",
+      "B) Integrated Circuits (ICs)",
+      "C) Microprocessors",
+      "D) Artificial Intelligence"
+    ],
+    "correct_answer": "C) Microprocessors",
+    "explanation": "The fourth generation of computers is characterized by microprocessors, which brought thousands of integrated circuits onto a single silicon chip."
+  },
+  {
+    "question_number": 23,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Computer Organization",
+    "question": "In the fundamental cycle of computer organization, raw unorganized facts are input as 'data'. Once this data is processed, structured, and presented meaningfully by the CPU, it is known as:",
+    "options": [
+      "A) Information",
+      "B) Instruction",
+      "C) Program",
+      "D) Output Code"
+    ],
+    "correct_answer": "A) Information",
+    "explanation": "Data represents raw, unprocessed facts. Once data is processed by the computer system to give it context and meaning, it becomes Information."
+  },
+  {
+    "question_number": 24,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Computer Organization",
+    "question": "To overcome the speed disparity between a fast processor and slower main memory, Cache memory is utilized. Logically, cache memory works directly between:",
+    "options": [
+      "A) ROM and CPU",
+      "B) RAM and ROM",
+      "C) CPU and RAM",
+      "D) Random and secondary memory"
+    ],
+    "correct_answer": "C) CPU and RAM",
+    "explanation": "Cache memory is extremely fast memory built directly into or very close to the CPU. It acts as a buffer between the Central Processing Unit (CPU) and the Random Access Memory (RAM), holding frequently accessed data to speed up processing."
+  },
+  {
+    "question_number": 25,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Input & Output Devices",
+    "question": "The term 'QWERTY' is fundamentally associated with the design and layout of which hardware device?",
+    "options": [
+      "A) Monitor",
+      "B) Printer",
+      "C) Keyboard",
+      "D) Mouse"
+    ],
+    "correct_answer": "C) Keyboard",
+    "explanation": "QWERTY describes the standard arrangement of letters on an English-language keyboard, named after the first six letters on the top alphabetic row."
+  },
+  {
+    "question_number": 26,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Input & Output Devices",
+    "question": "The visual output on a monitor is constructed from thousands or millions of tiny programmable points of light. A single dot on a computer screen is technically called a:",
+    "options": [
+      "A) Desktop",
+      "B) Color dot",
+      "C) Pixel",
+      "D) Screen dot"
+    ],
+    "correct_answer": "C) Pixel",
+    "explanation": "The word pixel stands for 'picture element'. It is the smallest unit of a digital image or graphic that can be displayed and represented on a digital display device."
+  },
+  {
+    "question_number": 27,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Memory Hierarchy & Conversions",
+    "question": "Applying the 'Math of Memory' and the 1024 rule, the term Gigabyte (GB) refers exactly to:",
+    "options": [
+      "A) 1024 bytes",
+      "B) 1024 kilobytes",
+      "C) 1024 megabytes",
+      "D) 1024 gigabytes"
+    ],
+    "correct_answer": "C) 1024 megabytes",
+    "explanation": "In binary memory hierarchy architecture, units scale by a factor of 1024 (2^10). 1 Kilobyte = 1024 Bytes. 1 Megabyte = 1024 Kilobytes. 1 Gigabyte = 1024 Megabytes."
+  },
+  {
+    "question_number": 28,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Memory Hierarchy & Conversions",
+    "question": "Calculate the exact storage capacity in bytes: How many bytes does 4 kilobytes (KB) represent?",
+    "options": [
+      "A) 512",
+      "B) 1024",
+      "C) 4096",
+      "D) 8192"
+    ],
+    "correct_answer": "C) 4096",
+    "explanation": "According to the binary multiplier rule, 1 Kilobyte equals 1024 bytes. Therefore, 4 Kilobytes = 4 * 1024 bytes = 4096 bytes."
+  },
+  {
+    "question_number": 29,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Memory Hierarchy & Conversions",
+    "question": "At the lowest level of physical memory organization, what is the absolute smallest unit of information that a computer can store?",
+    "options": [
+      "A) A bit",
+      "B) A byte",
+      "C) A block",
+      "D) A nibble"
+    ],
+    "correct_answer": "A) A bit",
+    "explanation": "A 'bit' (binary digit) is the most basic and smallest unit of information in computing and digital communications, representing a logical state of either 0 or 1."
+  },
+  {
+    "question_number": 30,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Memory Hierarchy & Conversions",
+    "question": "In data representation and memory architecture, how many bits are required to represent a single character in hexadecimal code?",
+    "options": [
+      "A) 16",
+      "B) 0",
+      "C) 2",
+      "D) 4"
+    ],
+    "correct_answer": "D) 4",
+    "explanation": "Hexadecimal is a base-16 number system, using 16 distinct symbols (0-9 and A-F). Since 2^4 = 16, exactly 4 bits (half a byte, or a nibble) are needed to binary-encode one hexadecimal digit."
+  },
+  {
+    "question_number": 31,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "System vs Application vs Utility Software",
+    "question": "Which of the following descriptions accurately defines an Operating System?",
+    "options": [
+      "A) An interface between the hardware and application programs",
+      "B) A collection of programs that manages hardware resources",
+      "C) A system service provider to the application programs",
+      "D) All of the above mentioned"
+    ],
+    "correct_answer": "D) All of the above mentioned",
+    "explanation": "An Operating System is the core system software. It manages hardware resources, provides essential services to application software, and acts as the crucial interface between the user/applications and the underlying physical hardware."
+  },
+  {
+    "question_number": 32,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "System vs Application vs Utility Software",
+    "question": "Software that helps analyze, configure, optimize, or maintain a computer system, such as Disk Defragmenters or Antivirus programs, falls under which specific category?",
+    "options": [
+      "A) Application Software",
+      "B) Utility Software",
+      "C) Firmware",
+      "D) Open-Source Software"
+    ],
+    "correct_answer": "B) Utility Software",
+    "explanation": "Utility software is a type of system software designed to help analyze, configure, optimize, and maintain the computer, differing from application software which is used to perform specific user-driven tasks."
+  },
+  {
+    "question_number": 33,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Operating Systems Core Concepts",
+    "question": "The initial startup process of a computer system, during which the Operating System is loaded from the hard disk into RAM, is called:",
+    "options": [
+      "A) Starting",
+      "B) Booting",
+      "C) Saving",
+      "D) Displaying"
+    ],
+    "correct_answer": "B) Booting",
+    "explanation": "Booting is the technical term for the sequence of startup operations that loads the primary operating system into the computer's volatile main memory (RAM)."
+  },
+  {
+    "question_number": 34,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Operating Systems Core Concepts",
+    "question": "Operating systems must manage device drivers to handle hardware. What is the primary function of a device driver in OS operations?",
+    "options": [
+      "A) To run application software faster",
+      "B) To act as a translator between the Operating System and a hardware device",
+      "C) To secure the network from viruses",
+      "D) To defragment the hard drive"
+    ],
+    "correct_answer": "B) To act as a translator between the Operating System and a hardware device",
+    "explanation": "A device driver is a specialized software program that controls a particular hardware device, allowing the operating system to communicate with it without needing to know the device's precise hardware specifications."
+  },
+  {
+    "question_number": 35,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "OS Resource & Memory Management",
+    "question": "In OS memory management, the process of dividing physical memory spaces into variable-sized logical blocks to allocate to processes is known as:",
+    "options": [
+      "A) Paging",
+      "B) Segmentation",
+      "C) Bifurcation",
+      "D) Dynamic Division"
+    ],
+    "correct_answer": "B) Segmentation",
+    "explanation": "While 'Paging' divides memory into fixed-size blocks (pages), 'Segmentation' divides memory into variable-sized blocks based on logical units (segments) like functions or objects."
+  },
+  {
+    "question_number": 36,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "OS Resource & Memory Management",
+    "question": "Which specific OS module is responsible for keeping track of the status of each memory location, determining allocation policy, and updating RAM availability?",
+    "options": [
+      "A) Process Management",
+      "B) File Management",
+      "C) Memory Management",
+      "D) I/O Management"
+    ],
+    "correct_answer": "C) Memory Management",
+    "explanation": "Memory Management is the OS function that manages primary memory. It keeps track of every memory location, checks how much memory is to be allocated to processes, and decides which process gets memory at what time."
+  },
+  {
+    "question_number": 37,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Open Source vs Proprietary Software",
+    "question": "Which of the following is a classic and widely-used example of an Open-Source Operating System?",
+    "options": [
+      "A) Microsoft Windows 11",
+      "B) Apple macOS",
+      "C) Linux",
+      "D) Adobe iOS"
+    ],
+    "correct_answer": "C) Linux",
+    "explanation": "Linux is an open-source operating system. Its source code is freely available to the public to view, edit, and distribute, unlike Windows or macOS which are proprietary."
+  },
+  {
+    "question_number": 38,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Open Source vs Proprietary Software",
+    "question": "Software whose source code is legally restricted, kept secret by its creator, and cannot be modified by the end-user is referred to as:",
+    "options": [
+      "A) Freeware",
+      "B) Shareware",
+      "C) Proprietary Software",
+      "D) Open-Source Software"
+    ],
+    "correct_answer": "C) Proprietary Software",
+    "explanation": "Proprietary software is non-free software for which the software's publisher retains intellectual property rights. Users purchase a license to use it, but the source code remains closed and locked."
+  },
+  {
+    "question_number": 39,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "Operating Systems Core Concepts",
+    "question": "Modern Operating Systems provide an interface that allows users to interact utilizing windows, icons, menus, and pointers rather than typing text commands. This interface is abbreviated as:",
+    "options": [
+      "A) CUI",
+      "B) CLI",
+      "C) GUI",
+      "D) API"
+    ],
+    "correct_answer": "C) GUI",
+    "explanation": "GUI stands for Graphical User Interface. It replaced Command Line Interfaces (CLI) by allowing users to click visual indicators like icons and windows."
+  },
+  {
+    "question_number": 40,
+    "main_topic": "Computer Awareness",
+    "sub_topic": "System vs Application vs Utility Software",
+    "question": "Programs designed specifically to help users perform a single, specific task or group of tasks—such as word processors, spreadsheets, and web browsers—are broadly classified as:",
+    "options": [
+      "A) Application Software",
+      "B) Utility Software",
+      "C) System Software",
+      "D) Assembly Software"
+    ],
+    "correct_answer": "A) Application Software",
+    "explanation": "Application software runs on top of the OS and is built to perform specific user-oriented tasks (e.g., MS Word for writing, Chrome for browsing), differentiating it from background system software."
+  }
+]
+
+/* =====================================================================
+   DATA ADAPTER
+   ===================================================================== */
+const mockQuestions = rawQuestionBank.map(item => {
+    let correctIndex = item.options.findIndex(opt => opt.trim() === item.correct_answer.trim());
+    if (correctIndex === -1) correctIndex = item.options.findIndex(opt => opt.charAt(0) === item.correct_answer.charAt(0));
+    return {
+        id: item.question_number, section: item.main_topic, subtopic: item.sub_topic,
+        question: item.question, options: item.options, correct: correctIndex !== -1 ? correctIndex : 0, explanation: item.explanation
+    };
+});
+
+/* =====================================================================
+   GLOBAL STATE & CONSTANTS
+   ===================================================================== */
+const ENCRYPTION_KEY = "ExamProSecureKey2026!";
+let currentQIndex = 0; let examTimerInterval; let timeLeft = 40 * 60; 
+let userResponses = {}; let currentExamData = null; let evaluatorMetacognition = {}; 
+
+let radarChartInst = null; let stackedBarChartInst = null;
+let currentDashboardSection = 'Overall'; 
+let currentTableFilter = 'All'; 
+let currentSearchQuery = ''; 
+
+// PROCTORING STATE
+let isExamActive = false;
+let tabSwitchWarnings = 0;
+const MAX_WARNINGS = 3;
+
+/* =====================================================================
+   ANTI-CHEAT PROCTORING LOGIC
+   ===================================================================== */
+   
+// 1. Prevent Right-Click, Copy, Cut, Paste globally IF exam is active
+['copy', 'cut', 'paste', 'contextmenu'].forEach(evt => {
+    document.addEventListener(evt, (e) => {
+        if (isExamActive) {
+            e.preventDefault();
+        }
+    });
+});
+
+// 2. Prevent Tab Switching via Visibility API
+document.addEventListener("visibilitychange", () => {
+    if (isExamActive && document.hidden) {
+        tabSwitchWarnings++;
+        if (tabSwitchWarnings >= MAX_WARNINGS) {
+            alert("🚨 EXAM TERMINATED: You navigated away from the exam window too many times. Your exam is being auto-submitted.");
+            submitExam();
+        } else {
+            alert(`⚠️ WARNING: Tab switching/leaving the window is strictly prohibited!\n\nStrike ${tabSwitchWarnings} of ${MAX_WARNINGS}. Your exam will be auto-submitted on the 3rd strike.`);
+        }
+    }
+});
+
+
+/* =====================================================================
+   UTILITY FUNCTIONS
+   ===================================================================== */
+function switchView(viewId) {
+    document.getElementById('view-home').classList.add('hidden');
+    document.getElementById('view-exam').classList.add('hidden');
+    document.getElementById('view-evaluator').classList.add('hidden');
+    document.getElementById(viewId).classList.remove('hidden');
+}
+
+function formatLabel(str, maxLen = 22) {
+    if (str.length <= maxLen) return str;
+    const words = str.split(' '); let lines = []; let currentLine = '';
+    words.forEach(word => {
+        if ((currentLine + word).length > maxLen) { lines.push(currentLine.trim()); currentLine = word + ' '; } 
+        else { currentLine += word + ' '; }
+    });
+    lines.push(currentLine.trim()); return lines;
+}
+
+function mapConfidenceLabel(val) {
+    if (val === "3") return "High Confidence";
+    if (val === "2") return "Med Confidence";
+    if (val === "1") return "Low Confidence";
+    if (val === "0") return "Zero Confidence";
+    return "Unlogged Conf";
+}
+
+function highlightText(text, query) {
+    if (!query || query.trim() === '') return text;
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return text.replace(regex, `<mark class="bg-yellow-200 text-yellow-900 rounded-sm px-0.5 font-bold shadow-sm">$1</mark>`);
+}
+
+/* =====================================================================
+   MODULE 1: EXAM MODE (ASPIRANT)
+   ===================================================================== */
+function startExam() {
+    switchView('view-exam'); 
+    currentQIndex = 0; 
+    userResponses = {}; 
+    timeLeft = 40 * 60; 
+    document.getElementById('table-search').value = ""; 
+    
+    // Activate Anti-Cheat Guardrails
+    isExamActive = true;
+    tabSwitchWarnings = 0;
+
+    startTimer(); 
+    renderQuestion();
+}
+
+function startTimer() {
+    examTimerInterval = setInterval(() => {
+        timeLeft--;
+        let h = Math.floor(timeLeft / 3600); let m = Math.floor((timeLeft % 3600) / 60); let s = timeLeft % 60;
+        document.getElementById('timer-display').innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        if (timeLeft <= 0) { clearInterval(examTimerInterval); submitExam(); }
+    }, 1000);
+}
+
+function renderQuestion() {
+    const q = mockQuestions[currentQIndex]; const saved = userResponses[q.id] || {};
+    let optionsHtml = '';
+    q.options.forEach((opt, idx) => {
+        const isChecked = saved.answer === idx ? 'checked' : '';
+        optionsHtml += `
+            <label class="block p-4 mb-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition shadow-sm ${isChecked ? 'bg-blue-50 border-blue-400' : ''}">
+                <input type="radio" name="q${q.id}" value="${idx}" class="mr-3" ${isChecked} onchange="saveResponse(${q.id}, ${idx})">
+                ${opt}
+            </label>
+        `;
+    });
+    document.getElementById('question-container').innerHTML = `
+        <span class="text-sm font-bold text-blue-600 uppercase tracking-wider">${q.section} - ${q.subtopic}</span>
+        <div class="font-semibold text-gray-800 text-lg md:text-xl mt-2 mb-6 whitespace-pre-wrap leading-relaxed">${q.id}. ${q.question}</div>
+        <div class="mb-4">${optionsHtml}</div>
+    `;
+    document.getElementById('question-counter').innerText = `Q ${currentQIndex + 1} of ${mockQuestions.length}`;
+    document.getElementById('btn-prev').disabled = currentQIndex === 0;
+    if (currentQIndex === mockQuestions.length - 1) {
+        document.getElementById('btn-next').classList.add('hidden'); document.getElementById('btn-submit').classList.remove('hidden');
+    } else {
+        document.getElementById('btn-next').classList.remove('hidden'); document.getElementById('btn-submit').classList.add('hidden');
+    }
+}
+
+function saveResponse(qId, value) {
+    if (!userResponses[qId]) userResponses[qId] = {}; userResponses[qId].answer = parseInt(value); renderQuestion(); 
+}
+
+function navigate(dir) { currentQIndex += dir; renderQuestion(); }
+
+function submitExam() {
+    clearInterval(examTimerInterval);
+    
+    // Deactivate Anti-Cheat Guardrails so they can use their computer normally after
+    isExamActive = false;
+
+    const payload = { student: "Aspirant_101", date: new Date().toISOString(), timeTaken: (40 * 60) - timeLeft, answers: userResponses, questionsMeta: mockQuestions };
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(payload), ENCRYPTION_KEY).toString();
+    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `Aspirant_101_submission.examdata`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    alert("Exam submitted! The encrypted .examdata file has been downloaded."); switchView('view-home');
+}
+
+/* =====================================================================
+   MODULE 2: EVALUATOR MODE (REVIEWER)
+   ===================================================================== */
+function handleFileUpload(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const bytes = CryptoJS.AES.decrypt(e.target.result, ENCRYPTION_KEY);
+            currentExamData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+            evaluatorMetacognition = currentExamData.evaluations || {}; 
+            currentDashboardSection = 'Overall'; 
+            currentTableFilter = 'All'; 
+            currentSearchQuery = ''; 
+            document.getElementById('table-search').value = "";
+            
+            renderTableFilters();
+            renderTable(currentExamData); 
+            updateAllCharts(); 
+            
+            document.getElementById('upload-section').classList.add('hidden');
+            document.getElementById('dashboard-content').classList.remove('hidden');
+            document.getElementById('btn-save-eval').classList.remove('hidden');
+        } catch (err) { alert("Error parsing file."); console.error(err); }
+    };
+    reader.readAsText(file);
+}
+
+function saveEvaluation() {
+    if (!currentExamData) return;
+    currentExamData.evaluations = evaluatorMetacognition; currentExamData.lastEvaluatedDate = new Date().toISOString();
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(currentExamData), ENCRYPTION_KEY).toString();
+    const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `${currentExamData.student || "Aspirant"}_evaluated_submission.examdata`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    alert("Evaluation progress saved! Updated .examdata downloaded.");
+}
+
+/* --- TABLE FILTER & SEARCH UI LOGIC --- */
+
+function handleSearch(query) {
+    currentSearchQuery = query;
+    renderTable(currentExamData);
+}
+
+function renderTableFilters() {
+    const filtersContainer = document.getElementById('table-filters');
+    if (!filtersContainer || !currentExamData) return;
+    
+    const filters = ['All', 'Incorrect', 'Correct', 'Unattempted'];
+    let html = '';
+    
+    filters.forEach(f => {
+        const isActive = f === currentTableFilter;
+        let baseClasses = "px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border cursor-pointer flex items-center gap-1.5 ";
+        
+        let count = 0;
+        if (f === 'All') {
+            count = currentExamData.questionsMeta.length;
+        } else {
+            count = currentExamData.questionsMeta.filter(q => {
+                const resp = currentExamData.answers[q.id] || {};
+                const isAttempted = resp.answer !== undefined;
+                const isCorrect = isAttempted && resp.answer === q.correct;
+                if (f === 'Correct') return isCorrect;
+                if (f === 'Incorrect') return isAttempted && !isCorrect;
+                if (f === 'Unattempted') return !isAttempted;
+            }).length;
+        }
+
+        if (isActive) {
+            if (f === 'All') baseClasses += "bg-indigo-600 text-white border-indigo-600 shadow-md";
+            else if (f === 'Correct') baseClasses += "bg-green-600 text-white border-green-600 shadow-md";
+            else if (f === 'Incorrect') baseClasses += "bg-red-600 text-white border-red-600 shadow-md";
+            else if (f === 'Unattempted') baseClasses += "bg-gray-500 text-white border-gray-500 shadow-md";
+        } else {
+            baseClasses += "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+        }
+
+        html += `<button onclick="setTableFilter('${f}')" class="${baseClasses}">
+                    ${f} 
+                    <span class="${isActive ? 'bg-white/20' : 'bg-gray-100 text-gray-500'} px-2 py-0.5 rounded-full text-[10px] ml-1">${count}</span>
+                 </button>`;
+    });
+    
+    filtersContainer.innerHTML = html;
+}
+
+function setTableFilter(filter) {
+    currentTableFilter = filter;
+    renderTableFilters();
+    renderTable(currentExamData);
+}
+
+function renderTable(data) {
+    let tableHtml = '';
+
+    const filteredQuestions = data.questionsMeta.filter(q => {
+        let matchesStatus = true;
+        if (currentTableFilter !== 'All') {
+            const resp = data.answers[q.id] || {};
+            const isAttempted = resp.answer !== undefined;
+            const isCorrect = isAttempted && resp.answer === q.correct;
+            if (currentTableFilter === 'Correct') matchesStatus = isCorrect;
+            else if (currentTableFilter === 'Incorrect') matchesStatus = isAttempted && !isCorrect;
+            else if (currentTableFilter === 'Unattempted') matchesStatus = !isAttempted;
+        }
+
+        let matchesSearch = true;
+        if (currentSearchQuery.trim() !== "") {
+            const searchLower = currentSearchQuery.toLowerCase();
+            matchesSearch = q.section.toLowerCase().includes(searchLower) || 
+                            q.subtopic.toLowerCase().includes(searchLower);
+        }
+
+        return matchesStatus && matchesSearch;
+    });
+
+    if (filteredQuestions.length === 0) {
+        tableHtml = `<tr><td colspan="4" class="py-12 text-center text-gray-500 italic bg-gray-50">No questions found matching your criteria.</td></tr>`;
+    } else {
+        filteredQuestions.forEach((q) => {
+            const resp = data.answers[q.id] || {}; 
+            const isAttempted = resp.answer !== undefined; 
+            const isCorrect = isAttempted && resp.answer === q.correct;
+            const meta = evaluatorMetacognition[q.id] || {}; 
+            const selAnalysis = meta.analysis || ""; 
+            const selConfidence = meta.confidence || "";
+            const isSel = (val, target) => val === target ? "selected" : "";
+
+            const displaySection = highlightText(q.section, currentSearchQuery);
+            const displaySubtopic = highlightText(q.subtopic, currentSearchQuery);
+
+            let optionsListHtml = q.options.map((opt, idx) => {
+                let isChosen = resp.answer === idx;
+                let isActualCorrect = q.correct === idx;
+                
+                let liClass = "border-transparent text-gray-600";
+                let badge = "";
+                let badgeClass = "hidden";
+                
+                if (isActualCorrect && isChosen) {
+                    liClass = "bg-green-50 border-green-200 text-green-900 font-semibold";
+                    badge = "Correct Choice";
+                    badgeClass = "bg-green-200 text-green-800";
+                } else if (isActualCorrect && !isChosen) {
+                    liClass = "bg-blue-50 border-blue-200 text-blue-900 font-medium";
+                    badge = "Right Answer";
+                    badgeClass = "bg-blue-200 text-blue-800";
+                } else if (!isActualCorrect && isChosen) {
+                    liClass = "bg-red-50 border-red-200 text-red-900 font-medium";
+                    badge = "Aspirant's Choice";
+                    badgeClass = "bg-red-200 text-red-800";
+                }
+                
+                return `
+                    <li class="p-3 rounded-lg border ${liClass} flex justify-between items-start gap-3 transition-colors">
+                        <span class="flex-1 leading-snug">${opt}</span>
+                        <span class="${badgeClass} text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full shrink-0">${badge}</span>
+                    </li>`;
+            }).join('');
+
+            let searchQuery = encodeURIComponent(`${q.question} ${q.options.join(" ")}`);
+            
+            let statusHtml = !isAttempted 
+                ? `<span class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Unattempted</span>` 
+                : (isCorrect 
+                    ? `<span class="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-green-200"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Correct</span>` 
+                    : `<span class="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Incorrect</span>`);
+
+            tableHtml += `
+                <tr class="border-b border-gray-100 align-top bg-white hover:bg-slate-50/50">
+                    <td class="py-6 px-6 font-bold text-gray-300 text-2xl w-16">${q.id}</td>
+                    <td class="py-6 px-6">
+                        <div class="flex flex-wrap items-center gap-2 mb-4">
+                            <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">${displaySection}</span>
+                            <span class="text-gray-300 text-xs">&rsaquo;</span>
+                            <span class="text-gray-500 text-xs font-semibold">${displaySubtopic}</span>
+                        </div>
+                        <div class="font-semibold text-gray-900 text-[15px] mb-5 whitespace-pre-wrap leading-relaxed">${q.question}</div>
+                        <ul class="space-y-2.5 mb-5 w-full max-w-2xl">${optionsListHtml}</ul>
+                        <div class="text-sm text-amber-900 bg-amber-50/50 p-4 rounded-lg border border-amber-200/60 shadow-sm max-w-3xl">
+                            <span class="font-bold uppercase tracking-wider text-[11px] text-amber-700 block mb-1">Explanation</span>
+                            <span class="leading-relaxed">${q.explanation}</span>
+                        </div>
+                        <div class="mt-4"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-semibold transition-colors"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>Deep Dive via Google</a></div>
+                    </td>
+                    <td class="py-6 px-6">${statusHtml}</td>
+                    <td class="py-6 px-6 bg-slate-50/80 border-l border-gray-100">
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Root Cause Analysis</label>
+                                <select onchange="updateMetaTracker(${q.id}, 'analysis', this.value)" class="custom-select w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 shadow-sm appearance-none hover:border-indigo-300 transition-colors cursor-pointer font-medium">
+                                    <option value="" disabled ${isSel("", selAnalysis)}>Discuss & Select...</option>
+                                    <optgroup label="Success Metrics">
+                                        <option value="Mastery" ${isSel("Mastery", selAnalysis)}>Mastery / Deep Knowledge</option>
+                                        <option value="Educated Guess" ${isSel("Educated Guess", selAnalysis)}>Educated Guess</option>
+                                        <option value="Lucky Guess" ${isSel("Lucky Guess", selAnalysis)}>Lucky Guess</option>
+                                    </optgroup>
+                                    <optgroup label="Error Metrics">
+                                        <option value="Conceptual Error" ${isSel("Conceptual Error", selAnalysis)}>Conceptual Error</option>
+                                        <option value="Misread" ${isSel("Misread", selAnalysis)}>Misread / Silly Mistake</option>
+                                        <option value="Unaware" ${isSel("Unaware", selAnalysis)}>Unaware / Blind Guess</option>
+                                        <option value="Topic Not Covered" ${isSel("Topic Not Covered", selAnalysis)}>Topic Not Covered</option>
+                                        <option value="Timeout" ${isSel("Timeout", selAnalysis)}>Time Crunch / Timeout</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Aspirant's Confidence</label>
+                                <select onchange="updateMetaTracker(${q.id}, 'confidence', this.value)" class="custom-select w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 shadow-sm appearance-none hover:border-indigo-300 transition-colors cursor-pointer font-medium">
+                                    <option value="" disabled ${isSel("", selConfidence)}>Discuss & Select...</option>
+                                    <option value="3" ${isSel("3", selConfidence)}>High (100% Sure)</option>
+                                    <option value="2" ${isSel("2", selConfidence)}>Medium (50/50)</option>
+                                    <option value="1" ${isSel("1", selConfidence)}>Low (Total Guess)</option>
+                                    <option value="0" ${isSel("0", selConfidence)}>Zero (Blanked Out)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    document.getElementById('breakdown-table-body').innerHTML = tableHtml;
+}
+
+function updateMetaTracker(qId, key, value) {
+    if (!evaluatorMetacognition[qId]) evaluatorMetacognition[qId] = {};
+    evaluatorMetacognition[qId][key] = value; updateAllCharts(); 
+}
+
+/* =====================================================================
+   DATA PROCESSING & CHART RENDERING
+   ===================================================================== */
+window.globalSubtopicStats = {};
+window.globalSankeyFlows = {};
+
+function updateAllCharts() {
+    if(!currentExamData) return;
+
+    const sectionStats = {};
+    const subtopicStats = { 'Overall': {} }; 
+    const sankeyFlows = { 'Overall': [] };
+
+    currentExamData.questionsMeta.forEach(q => {
+        const resp = currentExamData.answers[q.id] || {};
+        const isAttempted = resp.answer !== undefined;
+        const isCorrect = isAttempted && resp.answer === q.correct;
+        const meta = evaluatorMetacognition[q.id] || {};
+
+        if (!sectionStats[q.section]) sectionStats[q.section] = { correct: 0, wrong: 0, unattempted: 0 };
+        if (!isAttempted) sectionStats[q.section].unattempted++;
+        else if (isCorrect) sectionStats[q.section].correct++;
+        else sectionStats[q.section].wrong++;
+
+        if (!subtopicStats[q.section]) subtopicStats[q.section] = {};
+        if (!subtopicStats[q.section][q.subtopic]) subtopicStats[q.section][q.subtopic] = { total: 0, correct: 0, confSum: 0, confCount: 0 };
+        if (!subtopicStats['Overall'][q.subtopic]) subtopicStats['Overall'][q.subtopic] = { total: 0, correct: 0, confSum: 0, confCount: 0 };
+
+        subtopicStats[q.section][q.subtopic].total++;
+        subtopicStats['Overall'][q.subtopic].total++;
+        if (isCorrect) {
+            subtopicStats[q.section][q.subtopic].correct++;
+            subtopicStats['Overall'][q.subtopic].correct++;
+        }
+        if (meta.confidence) {
+            subtopicStats[q.section][q.subtopic].confSum += parseInt(meta.confidence);
+            subtopicStats[q.section][q.subtopic].confCount++;
+            subtopicStats['Overall'][q.subtopic].confSum += parseInt(meta.confidence);
+            subtopicStats['Overall'][q.subtopic].confCount++;
+        }
+
+        if (!sankeyFlows[q.section]) sankeyFlows[q.section] = [];
+        if (meta.confidence && meta.analysis) {
+            let confLabel = mapConfidenceLabel(meta.confidence);
+            let rootLabel = meta.analysis;
+            let outLabel = !isAttempted ? "Unattempted" : (isCorrect ? "Correct" : "Incorrect");
+
+            sankeyFlows[q.section].push({ source: confLabel, target: rootLabel });
+            sankeyFlows[q.section].push({ source: rootLabel, target: outLabel });
+            sankeyFlows['Overall'].push({ source: confLabel, target: rootLabel });
+            sankeyFlows['Overall'].push({ source: rootLabel, target: outLabel });
+        }
+    });
+
+    window.globalSubtopicStats = subtopicStats;
+    window.globalSankeyFlows = sankeyFlows;
+
+    drawStackedBarChart(sectionStats);
+    renderDashboardTabs();
+    drawDynamicCharts(currentDashboardSection);
+}
+
+Chart.defaults.elements.bar.borderWidth = 2; Chart.defaults.elements.bar.borderRadius = 4;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+
+function renderDashboardTabs() {
+    const tabsContainer = document.getElementById('dashboard-tabs');
+    const sections = Object.keys(window.globalSubtopicStats);
+    let tabsHtml = '';
+    sections.forEach(sec => {
+        const isActive = sec === currentDashboardSection;
+        const activeClass = isActive ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200';
+        tabsHtml += `<button onclick="setDashboardSection('${sec}')" class="px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${activeClass}">${sec}</button>`;
+    });
+    tabsContainer.innerHTML = tabsHtml;
+}
+
+function setDashboardSection(sec) {
+    currentDashboardSection = sec;
+    renderDashboardTabs();
+    drawDynamicCharts(sec);
+}
+
+function drawDynamicCharts(sectionKey) {
+    drawRadarChart(sectionKey);
+    drawSankeyDiagram(sectionKey);
+}
+
+function drawRadarChart(sectionKey) {
+    const data = window.globalSubtopicStats[sectionKey]; if(!data) return;
+    const ctx = document.getElementById('radarChart').getContext('2d');
+    if(radarChartInst) radarChartInst.destroy();
+
+    const labels = Object.keys(data).map(l => formatLabel(l));
+    const accuracyData = Object.keys(data).map(l => (data[l].correct / data[l].total) * 100);
+    const confidenceData = Object.keys(data).map(l => {
+        let count = data[l].confCount; if(count === 0) return 0; return ((data[l].confSum / count) / 3) * 100;
+    });
+
+    radarChartInst = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Accuracy (%)', data: accuracyData, backgroundColor: 'rgba(79, 70, 229, 0.4)', borderColor: 'rgba(67, 56, 202, 1)' },
+                { label: 'Logged Confidence (%)', data: confidenceData, backgroundColor: 'rgba(245, 158, 11, 0.4)', borderColor: 'rgba(217, 119, 6, 1)' }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false }, pointLabels: { font: { size: 10 } } } },
+            plugins: { tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)}%` } } }
+        }
+    });
+}
+
+function drawStackedBarChart(data) {
+    const ctx = document.getElementById('stackedBarChart').getContext('2d');
+    if(stackedBarChartInst) stackedBarChartInst.destroy();
+
+    const labels = Object.keys(data).map(l => formatLabel(l));
+    const correctData = Object.keys(data).map(l => data[l].correct);
+    const wrongData = Object.keys(data).map(l => data[l].wrong);
+    const unattemptedData = Object.keys(data).map(l => data[l].unattempted);
+
+    stackedBarChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Correct', data: correctData, backgroundColor: '#22c55e', barPercentage: 0.6 },
+                { label: 'Incorrect', data: wrongData, backgroundColor: '#ef4444', barPercentage: 0.6 },
+                { label: 'Unattempted', data: unattemptedData, backgroundColor: '#d1d5db', barPercentage: 0.6 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+            scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } },
+            plugins: { legend: { position: 'top' } }
+        }
+    });
+}
+
+function drawSankeyDiagram(sectionKey) {
+    const rawFlows = window.globalSankeyFlows[sectionKey];
+    const container = document.getElementById('sankeyChart');
+
+    if(!rawFlows || rawFlows.length === 0) {
+        Plotly.purge(container);
+        container.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400 italic">No cognitive data logged for ${sectionKey} yet. Select options in the table above.</div>`;
+        return;
+    }
+
+    const linkMap = {};
+    rawFlows.forEach(flow => {
+        const key = `${flow.source}->${flow.target}`;
+        linkMap[key] = (linkMap[key] || 0) + 1;
+    });
+
+    const nodeNames = [];
+    rawFlows.forEach(flow => {
+        if(!nodeNames.includes(flow.source)) nodeNames.push(flow.source);
+        if(!nodeNames.includes(flow.target)) nodeNames.push(flow.target);
+    });
+
+    const sourceArr = []; const targetArr = []; const valueArr = [];
+    Object.keys(linkMap).forEach(key => {
+        const parts = key.split('->');
+        sourceArr.push(nodeNames.indexOf(parts[0]));
+        targetArr.push(nodeNames.indexOf(parts[1]));
+        valueArr.push(linkMap[key]);
+    });
+
+    const nodeColors = nodeNames.map(name => {
+    if(name.includes("High")) return '#4f46e5'; 
+    if(name.includes("Med")) return '#8b5cf6'; 
+    if(name.includes("Low") || name.includes("Zero")) return '#f59e0b'; 
+    if(["Mastery", "Educated Guess", "Lucky Guess", "Correct"].includes(name)) return '#22c55e'; 
+    if(name === "Unattempted") return '#9ca3af'; // Added gray for Unattempted
+    return '#ef4444'; 
+});
+
+    const data = {
+      type: "sankey",
+      orientation: "h",
+      node: {
+        pad: 20, thickness: 30,
+        line: { color: "black", width: 0.5 },
+        label: nodeNames, color: nodeColors
+      },
+      link: {
+        source: sourceArr, target: targetArr, value: valueArr,
+        color: "rgba(200, 200, 200, 0.4)" 
+      }
+    };
+
+    const layout = {
+      font: { size: 12, family: 'Inter' },
+      margin: { t: 20, l: 20, r: 20, b: 20 }
+    };
+
+    Plotly.newPlot(container, [data], layout, {responsive: true});
+}
+</script>
+</body>
+</html>
