@@ -1,0 +1,3024 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EdTech Assessor Pro - 3D Analytics Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Smooth transitions for interactive rows */
+        tbody tr {
+            transition: all 0.2s ease-in-out;
+        }
+
+        tbody tr:hover {
+            transform: scale(1.005);
+            box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+            position: relative;
+            background-color: #ffffff;
+        }
+
+        /* Custom Dropdown Arrow SVG */
+        .custom-select {
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236B7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem top 50%;
+            background-size: 0.65rem auto;
+        }
+    </style>
+</head>
+
+<body class="text-gray-800">
+
+    <div id="view-home" class="min-h-screen flex items-center justify-center p-6">
+        <div class="glass-panel p-10 rounded-2xl shadow-xl max-w-lg w-full text-center">
+            <h1 class="text-3xl font-bold text-blue-700 mb-2">EdTech Assessor Pro</h1>
+            <p class="text-gray-500 mb-8">Select your portal to proceed.</p>
+            <div class="space-y-4">
+                <button onclick="startExam()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-lg shadow-blue-500/30">
+                    Start Exam (Aspirant Mode)
+                </button>
+                <button onclick="switchView('view-evaluator')" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg transition shadow-lg shadow-emerald-500/30">
+                    Upload & Review (Evaluator Mode)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-exam" class="hidden min-h-screen p-6 flex flex-col max-w-4xl mx-auto select-none">
+        <header class="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div>
+                <h2 class="text-xl font-bold text-gray-800">Mock Exam: General Studies</h2>
+                <p id="exam-status" class="text-sm text-gray-500">Attempt all questions. Window switching & copy-pasting is strictly prohibited.</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Time Remaining</p>
+                <p id="timer-display" class="text-2xl font-bold text-red-600">01:30:00</p>
+            </div>
+        </header>
+
+        <main class="flex-1 bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+            <div id="question-container">
+            </div>
+        </main>
+
+        <footer class="mt-6 flex justify-between items-center">
+            <button id="btn-prev" onclick="navigate(-1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 py-2 px-6 rounded-lg transition disabled:opacity-50">Previous</button>
+            <span id="question-counter" class="font-medium text-gray-500">Q 1 of X</span>
+            <button id="btn-next" onclick="navigate(1)" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition">Next</button>
+            <button id="btn-submit" onclick="submitExam()" class="hidden bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-lg transition">Submit Exam</button>
+        </footer>
+    </div>
+
+    <div id="view-evaluator" class="hidden min-h-screen p-6 bg-gray-50">
+        <div class="max-w-7xl mx-auto">
+            <header class="flex justify-between items-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">Evaluator Dashboard</h1>
+                <div class="space-x-4">
+                    <button id="btn-save-eval" onclick="saveEvaluation()" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded shadow transition font-medium">
+                        💾 Save & Export Evaluation
+                    </button>
+                    <button onclick="switchView('view-home')" class="text-blue-600 hover:underline font-medium">Exit Dashboard</button>
+                </div>
+            </header>
+
+            <div id="upload-section" class="bg-white p-10 rounded-xl shadow-sm border border-gray-200 text-center mb-8">
+                <h3 class="text-xl font-semibold mb-4">Import Exam Data (.examdata)</h3>
+                <input type="file" id="file-upload" accept=".examdata" class="hidden" onchange="handleFileUpload(event)">
+                <label for="file-upload" class="cursor-pointer bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 py-3 px-8 rounded-lg inline-block font-medium transition shadow-md">
+                    Browse & Upload File
+                </label>
+            </div>
+
+            <div id="dashboard-content" class="hidden space-y-8">
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="text-lg font-bold">Sub-Topic Performance Radar</h3>
+                                <p class="text-xs text-gray-500">Accuracy vs Confidence per sub-topic.</p>
+                            </div>
+                        </div>
+                        <div class="relative flex-1 w-full flex justify-center min-h-[300px]">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 flex flex-col">
+                        <h3 class="text-lg font-bold mb-2">Section Breakdown</h3>
+                        <p class="text-xs text-gray-500 mb-4">Attempted (Correct/Wrong) vs Unattempted.</p>
+                        <div class="relative flex-1 w-full min-h-[300px]">
+                            <canvas id="stackedBarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                    <h4 class="text-sm font-bold text-gray-600 mb-3 uppercase tracking-wider">Filter Analytics by Topic</h4>
+                    <div id="dashboard-tabs" class="flex justify-center flex-wrap gap-2">
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-md border border-gray-100 overflow-hidden">
+
+                    <div class="p-5 border-b border-gray-100 bg-white flex flex-col xl:flex-row justify-between xl:items-center gap-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">Detailed 1-on-1 Review</h3>
+                            <p class="text-xs text-gray-500">Log Metacognition & Root Causes here.</p>
+                        </div>
+
+                        <div class="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
+                            <div class="relative w-full md:w-64 shrink-0">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
+                                </div>
+                                <input type="text" id="table-search" oninput="handleSearch(this.value)" class="block w-full p-2 pl-9 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm" placeholder="Search Topics & Sub-topics...">
+                            </div>
+
+                            <div id="table-filters" class="flex flex-wrap gap-2 w-full md:w-auto"></div>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[850px] overflow-y-auto">
+                        <table class="min-w-full text-left border-collapse">
+                            <thead class="sticky top-0 bg-gray-50/95 backdrop-blur z-20 shadow-sm border-b border-gray-200">
+                                <tr class="text-gray-600 text-sm uppercase tracking-wider">
+                                    <th class="py-4 px-6 font-semibold w-16">Q#</th>
+                                    <th class="py-4 px-6 font-semibold w-1/2">Question Details & Explanation</th>
+                                    <th class="py-4 px-6 font-semibold w-32">Status</th>
+                                    <th class="py-4 px-6 font-semibold w-72">Collaborative Tracker</th>
+                                </tr>
+                            </thead>
+                            <tbody id="breakdown-table-body" class="text-sm">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                    <h3 class="text-lg font-bold mb-2">Cognitive Flow Analysis (Sankey Diagram)</h3>
+                    <p class="text-xs text-gray-500 mb-4">Visualizes the pipeline from Confidence → Root Cause → Final Outcome. Controlled by the Topic Filter above.</p>
+                    <div id="sankeyChart" class="w-full h-[400px]"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* =====================================================================
+   RAW DATA BANK
+   ===================================================================== */
+        const rawQuestionBank = [{
+                "question_number": 1,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution - Vimana",
+                "question": "In the classic Kalinga style of temple architecture, the 'Vimana' or the main sanctum sanctorum over which a curvilinear tower is built is technically classified as which type of Deula?",
+                "options": [
+                    "A) Pidha Deula",
+                    "B) Rekha Deula",
+                    "C) Khakhara Deula",
+                    "D) Valabhi Deula"
+                ],
+                "correct_answer": "B) Rekha Deula",
+                "explanation": "In Kalinga architecture, the main sanctum (Garbhagriha) with its tall, curvilinear spire (Vimana) is known as the Rekha Deula. The porch or assembly hall in front of it is usually a Pidha Deula (with a pyramid-shaped stepped roof)."
+            },
+            {
+                "question_number": 2,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution - Jagamohan",
+                "question": "The 'Jagamohan' in the Konark Sun Temple is an architectural marvel. Which of the following statements correctly describes its structural style?",
+                "options": [
+                    "A) It is a Rekha Deula that has completely collapsed over time.",
+                    "B) It is a Khakhara Deula with a barrel-vaulted elongated roof.",
+                    "C) It is a massive Pidha Deula, which is the only major intact structure of the temple surviving today.",
+                    "D) It is an open-air pillared pavilion meant exclusively for the Devadasis."
+                ],
+                "correct_answer": "C) It is a massive Pidha Deula, which is the only major intact structure of the temple surviving today.",
+                "explanation": "The main Vimana (Rekha Deula) of the Konark Sun Temple collapsed centuries ago. The massive, stepped-pyramidal structure that stands today and is admired by tourists is actually the Jagamohan (the audience hall), which is a classic Pidha Deula."
+            },
+            {
+                "question_number": 3,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution",
+                "question": "The Vaital Deula in Bhubaneswar is a rare and striking deviation from the standard Kalinga architectural norms. It belongs to which architectural category, primarily associated with Sakti worship?",
+                "options": [
+                    "A) Rekha Deula",
+                    "B) Pidha Deula",
+                    "C) Khakhara Deula",
+                    "D) Phamsana Deula"
+                ],
+                "correct_answer": "C) Khakhara Deula",
+                "explanation": "The Vaital Deula is a classic example of the Khakhara Deula style, characterized by a semi-cylindrical, barrel-vaulted roof (resembling a pumpkin gourd). This style was almost exclusively used for temples dedicated to Sakti (Goddess Chamunda in this case)."
+            },
+            {
+                "question_number": 4,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution - Natamandira",
+                "question": "In the evolutionary timeline of Kalinga temple architecture, the addition of the 'Natamandira' (Dance Hall) and 'Bhogamandapa' (Offering Hall) along the same axial alignment as the Vimana and Jagamohan became a standard practice during the reign of which dynasty?",
+                "options": [
+                    "A) Somavamsi Dynasty",
+                    "B) Ganga Dynasty",
+                    "C) Bhauma-Kara Dynasty",
+                    "D) Sailodbhava Dynasty"
+                ],
+                "correct_answer": "B) Ganga Dynasty",
+                "explanation": "Early temples (like Parasurameswara or Mukteswara) only had a Vimana and a Jagamohan. The four-part axial layout (Vimana, Jagamohan, Natamandira, Bhogamandapa) was perfected and standardized later during the imperial Ganga Dynasty (e.g., Lingaraj and Jagannath temples)."
+            },
+            {
+                "question_number": 5,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution - Buddhist Heritage",
+                "question": "Which of the following historical sites in Odisha is NOT a part of the famous 'Diamond Triangle' of Buddhist heritage?",
+                "options": [
+                    "A) Ratnagiri",
+                    "B) Udayagiri",
+                    "C) Lalitagiri",
+                    "D) Dhauli"
+                ],
+                "correct_answer": "D) Dhauli",
+                "explanation": "The 'Diamond Triangle' of Odishan Buddhism comprises the major monastic complexes of Ratnagiri, Udayagiri, and Lalitagiri. While Dhauli (with its Ashokan edicts and Shanti Stupa) is a crucial Buddhist site, it is not classified under the Diamond Triangle."
+            },
+            {
+                "question_number": 6,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution - Buddhist Heritage",
+                "question": "The ruins of the ancient Pushpagiri Mahavihara, an important center of Buddhist learning mentioned by the Chinese traveler Hiuen Tsang, were extensively excavated at which of the following locations?",
+                "options": [
+                    "A) Kuruma",
+                    "B) Langudi Hill",
+                    "C) Khandagiri",
+                    "D) Jirjingi"
+                ],
+                "correct_answer": "B) Langudi Hill",
+                "explanation": "Extensive excavations at Langudi Hill in the Jajpur district have revealed the ruins of the ancient Pushpagiri Mahavihara, confirming it was a major Buddhist university comparable to Nalanda."
+            },
+            {
+                "question_number": 7,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution",
+                "question": "In the context of Odishan cave architecture, the Hathigumpha inscription, which provides the primary biographical source for Emperor Kharavela, is located in which cave complex?",
+                "options": [
+                    "A) Udayagiri Hills",
+                    "B) Khandagiri Hills",
+                    "C) Dhauli Hills",
+                    "D) Gupteswar Caves"
+                ],
+                "correct_answer": "A) Udayagiri Hills",
+                "explanation": "The Hathigumpha (Elephant Cave) inscription is a seventeen-line rock-cut edict in Brahmi script located in the Udayagiri Hills (near Bhubaneswar), detailing the military conquests and public works of the Mahameghavahana emperor Kharavela."
+            },
+            {
+                "question_number": 8,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Architectural Evolution - Buddhist Heritage",
+                "question": "Consider the following statements regarding the Buddhist heritage of Odisha:\n1. The Rock Edicts at Dhauli contain Ashoka's famous declaration, 'All men are my children'.\n2. The Shanti Stupa at Dhauli was built during the reign of Emperor Ashoka.\nWhich of the statements given above is/are correct?",
+                "options": [
+                    "A) 1 only",
+                    "B) 2 only",
+                    "C) Both 1 and 2",
+                    "D) Neither 1 nor 2"
+                ],
+                "correct_answer": "A) 1 only",
+                "explanation": "Statement 1 is correct; the Special Kalinga Edict at Dhauli contains the famous pacifying quote. Statement 2 is incorrect; the white peace pagoda (Shanti Stupa) at Dhauli was built much later in the 1970s by the Japan Buddha Sangha and Kalinga Nippon Buddha Sangha, not by Ashoka."
+            },
+            {
+                "question_number": 9,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "The 'Gotipua' dance tradition of Odisha is highly significant in the cultural history of the state. What is the defining characteristic of this performing art?",
+                "options": [
+                    "A) It is a martial art dance performed exclusively by the Paika warriors.",
+                    "B) It is performed by young boys dressed as women, praising Lord Jagannath and Krishna.",
+                    "C) It is a tribal dance from the Koraput region performed during the Chaitra Parba.",
+                    "D) It is an exclusively female shadow-puppet theater art."
+                ],
+                "correct_answer": "B) It is performed by young boys dressed as women, praising Lord Jagannath and Krishna.",
+                "explanation": "Following the decline of the Mahari (Devadasi) system in the Jagannath Temple, the Gotipua tradition emerged where young boys dressed as female dancers performed acrobatic figures inspired by the life of Radha and Krishna. It is considered the precursor to modern Odissi dance."
+            },
+            {
+                "question_number": 10,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "Odissi dance is known for its distinct postures and fluid movements. Which iconic posture involves a three-body bend (head, chest, and pelvis) and is heavily depicted in Odishan temple sculptures?",
+                "options": [
+                    "A) Chowk",
+                    "B) Tribhanga",
+                    "C) Abhinaya",
+                    "D) Mudra"
+                ],
+                "correct_answer": "B) Tribhanga",
+                "explanation": "The Tribhanga (three-bend) posture is the most defining stance of Odissi, shifting the body weight on one foot while the head, torso, and hips bend in opposite directions. The 'Chowk' is another foundational square-like stance, but Tribhanga is the iconic S-curve."
+            },
+            {
+                "question_number": 11,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "Among the three recognized subgenres of Chhau dance (Seraikella, Purulia, and Mayurbhanj), what is the unique distinguishing feature of the Mayurbhanj Chhau of Odisha?",
+                "options": [
+                    "A) It is performed entirely on stilts.",
+                    "B) It strictly prohibits the use of any musical instruments.",
+                    "C) It is performed without the use of masks.",
+                    "D) It is exclusively performed by women."
+                ],
+                "correct_answer": "C) It is performed without the use of masks.",
+                "explanation": "Unlike the Seraikella (Jharkhand) and Purulia (West Bengal) styles of Chhau which heavily rely on elaborate painted masks, the Mayurbhanj Chhau of Odisha is distinct because the dancers do not wear masks, allowing for greater facial expression and unrestricted acrobatic movement."
+            },
+            {
+                "question_number": 12,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "Which of the following folk dances of Odisha is deeply associated with the Kalahandi region and historically served as a war dance to instill fear in enemies?",
+                "options": [
+                    "A) Dalkhai",
+                    "B) Ghumura",
+                    "C) Ranapa",
+                    "D) Danda Nata"
+                ],
+                "correct_answer": "B) Ghumura",
+                "explanation": "Ghumura is a traditional folk dance from the Kalahandi district. Historically used as a war dance to energize troops (accompanied by the beating of a pitcher-shaped drum called the Ghumura), it has now evolved into a cultural performance for social and festive occasions."
+            },
+            {
+                "question_number": 13,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "The 'Dalkhai' dance is one of the most popular folk dances of Western Odisha. During which major festival is it predominantly performed by young women?",
+                "options": [
+                    "A) Raja Parba",
+                    "B) Nuakhai",
+                    "C) Bhaijiuntia",
+                    "D) Makar Sankranti"
+                ],
+                "correct_answer": "C) Bhaijiuntia",
+                "explanation": "Dalkhai is a ritualistic folk dance of Western Odisha mostly performed by young women from communities like Binjhal, Kuda, and Mirdha. It is the major attraction during the Bhaijiuntia festival, where girls pray for the long life of their brothers."
+            },
+            {
+                "question_number": 14,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "Which traditional performing art of Odisha involves physical self-mortification and is primarily performed by the 'Bhoktas' in reverence to Lord Shiva and Goddess Kali during the month of Chaitra?",
+                "options": [
+                    "A) Pala",
+                    "B) Dasakathia",
+                    "C) Danda Nata",
+                    "D) Chaiti Ghoda"
+                ],
+                "correct_answer": "C) Danda Nata",
+                "explanation": "Danda Nata (or Danda Jatra) is an ancient religious folk art of Odisha dedicated to Lord Shiva and Goddess Kali. The participants, called Bhoktas, perform severe austerities and physical penance (like rolling on hot sand) during the Chaitra month."
+            },
+            {
+                "question_number": 15,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Performing Arts",
+                "question": "The 'Paika Akhada' is a famous performing art of Odisha. It originally originated as:",
+                "options": [
+                    "A) A harvest celebration dance by coastal farmers.",
+                    "B) A martial arts training system for the peasant militias of the Gajapati rulers.",
+                    "C) A devotional dance dedicated to the Sun God at Konark.",
+                    "D) An indoor theatrical storytelling method for the Ramayana."
+                ],
+                "correct_answer": "B) A martial arts training system for the peasant militias of the Gajapati rulers.",
+                "explanation": "The Paikas were the traditional landed peasant militias of Odisha who served the Gajapati kings of Khurda. Paika Akhada was their system of martial arts training involving swords, shields, and acrobatics, which is now preserved as a traditional martial dance."
+            },
+            {
+                "question_number": 16,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "The 'Sambalpuri Bandha' technique, which has received a Geographical Indication (GI) tag, refers to which distinct type of textile process?",
+                "options": [
+                    "A) Block printing using natural vegetable dyes.",
+                    "B) A tie-and-dye method where warp and weft threads are dyed before weaving.",
+                    "C) Hand-embroidering golden threads onto silk fabric.",
+                    "D) Patchwork and appliqué on cotton cloth."
+                ],
+                "correct_answer": "B) A tie-and-dye method where warp and weft threads are dyed before weaving.",
+                "explanation": "Sambalpuri Bandha is an intricate 'Ikat' technique. The distinct feature is that the warp and weft threads are tied and dyed according to a pre-determined design *before* they are woven on the loom, creating the signature blurred-edge motifs."
+            },
+            {
+                "question_number": 17,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "Which famous handicraft village in Odisha is globally renowned for keeping the ancient art of 'Pattachitra' (scroll painting) alive, where almost every family is engaged in the craft?",
+                "options": [
+                    "A) Pipili",
+                    "B) Raghurajpur",
+                    "C) Maniabandha",
+                    "D) Sadeibareni"
+                ],
+                "correct_answer": "B) Raghurajpur",
+                "explanation": "Raghurajpur, a heritage village located near Puri, is the primary center for Pattachitra (cloth painting) in Odisha. The artists (Chitrakars) prepare traditional canvas using tamarind paste and paint intricate mythological narratives using stone and earth colors."
+            },
+            {
+                "question_number": 18,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "Recently securing a highly anticipated Geographical Indication (GI) tag, 'Tarakasi' is a mesmerizing handicraft form belonging to which city in Odisha?",
+                "options": [
+                    "A) Bhubaneswar (Stone Carving)",
+                    "B) Cuttack (Silver Filigree)",
+                    "C) Berhampur (Silk Weaving)",
+                    "D) Balasore (Brass Metal Work)"
+                ],
+                "correct_answer": "B) Cuttack (Silver Filigree)",
+                "explanation": "Tarakasi refers to the exquisite Silver Filigree work of Cuttack. Artisans draw silver into hair-thin wires and twist them into intricate web-like designs to create jewelry and decorative items. It officially received its GI tag in 2024."
+            },
+            {
+                "question_number": 19,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "The GI-tagged 'Kotpad Handloom' is unique because of its organic dyeing process. Which natural element is primarily used to extract the distinct deep red and brown dye for these fabrics?",
+                "options": [
+                    "A) Turmeric root",
+                    "B) Indigo leaves",
+                    "C) Aal (Madder) tree roots",
+                    "D) Pomegranate skin"
+                ],
+                "correct_answer": "C) Aal (Madder) tree roots",
+                "explanation": "Woven by the Mirgan community of the Koraput district, Kotpad handloom fabrics are dyed using the roots of the Aal (Indian Madder) tree. The eco-friendly, non-toxic dyeing process takes nearly a month and yields distinct maroon, deep red, and dark brown hues."
+            },
+            {
+                "question_number": 20,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "Which famous handwoven textile of Odisha holds immense religious significance because verses from Jayadeva's 'Gita Govinda' are woven directly into the fabric to be offered to Lord Jagannath?",
+                "options": [
+                    "A) Bomkai Silk",
+                    "B) Khandua Saree",
+                    "C) Pasapali Ikat",
+                    "D) Berhampuri Patta"
+                ],
+                "correct_answer": "B) Khandua Saree",
+                "explanation": "Khandua Patta, woven primarily in the Maniabandha and Nuapatna areas, is intimately linked with the Jagannath Temple. The traditional 'Gita Govinda Khandua' features verses from the epic poem woven into the borders and is draped over the deities in Puri."
+            },
+            {
+                "question_number": 21,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "The town of Pipili in the Puri district is internationally recognized for which specific handicraft?",
+                "options": [
+                    "A) Dhokra (Lost Wax Metal Casting)",
+                    "B) Terracotta toys",
+                    "C) Appliqué work (Chandua)",
+                    "D) Horn bone craft"
+                ],
+                "correct_answer": "C) Appliqué work (Chandua)",
+                "explanation": "Pipili is the heart of Odisha's Appliqué (Chandua) work, where pieces of colored cloth are intricately stitched onto a larger base fabric to form vibrant patterns, traditionally used for umbrellas, canopies, and the chariots of the Ratha Yatra."
+            },
+            {
+                "question_number": 22,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Handicraft, Textile, GI Tag",
+                "question": "The 'Kapdaganda' shawl recently received a Geographical Indication (GI) tag. This exquisitely embroidered shawl is an identity marker for which Particularly Vulnerable Tribal Group (PVTG) in Odisha?",
+                "options": [
+                    "A) Bonda",
+                    "B) Dongria Kondh",
+                    "C) Mankirdia",
+                    "D) Juang"
+                ],
+                "correct_answer": "B) Dongria Kondh",
+                "explanation": "The Kapdaganda shawl, woven and heavily embroidered with vibrant geometric patterns by the women of the Dongria Kondh tribe (who reside in the Niyamgiri hills), is a symbol of their rich cultural heritage and recently secured a GI tag."
+            },
+            {
+                "question_number": 23,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Tribal Culture & Heritage",
+                "question": "The 'Idital' is a highly ritualistic and intricate form of mural painting traditionally created to appease deities and ancestors. It belongs to which prominent tribal community of Odisha?",
+                "options": [
+                    "A) Santhal",
+                    "B) Lanjia Saora",
+                    "C) Oraon",
+                    "D) Munda"
+                ],
+                "correct_answer": "B) Lanjia Saora",
+                "explanation": "Idital (or Saora paintings) are ritualistic murals created by the Lanjia Saora tribe. Usually painted with white rice paste on red ochre mud walls, they depict humans, horses, and geometric shapes, drawn by the village priest (Kudan) to honor the spirits."
+            },
+            {
+                "question_number": 24,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Tribal Culture & Heritage",
+                "question": "The 'Bonda' tribe is one of the most primitive and isolated Particularly Vulnerable Tribal Groups (PVTGs) in Odisha. In which district are they primarily localized?",
+                "options": [
+                    "A) Mayurbhanj",
+                    "B) Sundargarh",
+                    "C) Malkangiri",
+                    "D) Keonjhar"
+                ],
+                "correct_answer": "C) Malkangiri",
+                "explanation": "The Bonda tribe (often called the naked tribe due to their traditional minimal attire and heavy beaded jewelry) resides almost exclusively in the isolated hilly regions of the Malkangiri district, known as the Bonda Ghati."
+            },
+            {
+                "question_number": 25,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Tribal Culture & Heritage",
+                "question": "The Dongria Kondh tribe of Odisha has a deep spiritual connection with their ecology. They worship the mountain as a living deity known as:",
+                "options": [
+                    "A) Marang Buru",
+                    "B) Niyam Raja",
+                    "C) Badam",
+                    "D) Singbonga"
+                ],
+                "correct_answer": "B) Niyam Raja",
+                "explanation": "The Dongria Kondh tribe resides in the Niyamgiri hill range (spanning Rayagada and Kalahandi). They revere the mountain as their supreme deity and provider, addressing him as 'Niyam Raja' (The King of Law)."
+            },
+            {
+                "question_number": 26,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Tribal Culture & Heritage",
+                "question": "The 'Ol Chiki' script was created by Pandit Raghunath Murmu in 1925 to promote literature and cultural identity for which major tribal language in Odisha?",
+                "options": [
+                    "A) Ho",
+                    "B) Kui",
+                    "C) Santhali",
+                    "D) Sora"
+                ],
+                "correct_answer": "C) Santhali",
+                "explanation": "The Santhali language, which is one of the most widely spoken tribal languages in Eastern India and the only tribal language from Odisha in the 8th Schedule of the Constitution, uses the 'Ol Chiki' script created by Raghunath Murmu."
+            },
+            {
+                "question_number": 27,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Tribal Culture & Heritage",
+                "question": "Many tribal societies in Odisha, particularly the Kondhs and Bondas, have a traditional 'Youth Dormitory' system serving as a cultural learning center for unmarried boys and girls. What is this institution commonly called in the Kondh dialect?",
+                "options": [
+                    "A) Ghotul",
+                    "B) Morung",
+                    "C) Dhangada/Dhangidi Basa",
+                    "D) Gitiora"
+                ],
+                "correct_answer": "C) Dhangada/Dhangidi Basa",
+                "explanation": "In Odishan tribal culture (specifically among the Kondhs), the youth dormitory where unmarried young men (Dhangada) and women (Dhangidi) sleep, learn tribal lore, and choose their life partners is known as Dhangada/Dhangidi Basa. (Ghotul is specific to the Muria tribe in Bastar/Chhattisgarh)."
+            },
+            {
+                "question_number": 28,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Tribal Culture & Heritage",
+                "question": "Historically, the British initiated a massive military campaign in the 19th century in the Kandhamal region to suppress the 'Meriah' practice among the Kondh tribes. What was 'Meriah'?",
+                "options": [
+                    "A) A guerrilla warfare tactic against the British.",
+                    "B) A system of human sacrifice to appease the Earth Goddess.",
+                    "C) A tax-evasion movement led by tribal chieftains.",
+                    "D) The practice of shifting cultivation (slash-and-burn)."
+                ],
+                "correct_answer": "B) A system of human sacrifice to appease the Earth Goddess.",
+                "explanation": "Meriah was the ritualistic practice of human sacrifice performed by the Kondh tribes to appease the Earth Goddess (Tari Pennu) for good harvests and protection from disease. The British, led by officers like John Campbell, systematically suppressed it in the 1840s and 50s."
+            },
+            {
+                "question_number": 29,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "Odia was officially recognized as a 'Classical Language' by the Government of India, recognizing its high antiquity and original literary tradition. In which year did it receive this status?",
+                "options": [
+                    "A) 2004",
+                    "B) 2008",
+                    "C) 2014",
+                    "D) 2018"
+                ],
+                "correct_answer": "C) 2014",
+                "explanation": "Odia became the sixth Indian language (and the first from the Indo-Aryan linguistic group) to be granted Classical Language status by the Union Cabinet in 2014, acknowledging its 1,500-year-old literary history."
+            },
+            {
+                "question_number": 30,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "Who among the following is revered as the 'Adi Kabi' (first poet) of Odia literature, known for composing the Odia Mahabharata during the 15th-century reign of Gajapati Kapilendra Deva?",
+                "options": [
+                    "A) Jagannath Das",
+                    "B) Sarala Das",
+                    "C) Balaram Das",
+                    "D) Fakir Mohan Senapati"
+                ],
+                "correct_answer": "B) Sarala Das",
+                "explanation": "Sarala Das is regarded as the originator of Odia literature. He wrote the Odia Mahabharata, Vilanka Ramayana, and Chandi Purana in the 15th century during the reign of Emperor Kapilendra Deva. He bypassed Sanskrit and wrote purely in the language of the common people."
+            },
+            {
+                "question_number": 31,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "The 16th century in Odia literature is defined by the 'Panchasakha' (Five Friends) who translated ancient Hindu texts into simple Odia. Which of the following poets is NOT a member of the Panchasakha?",
+                "options": [
+                    "A) Balaram Das",
+                    "B) Jagannath Das",
+                    "C) Achyutananda Das",
+                    "D) Upendra Bhanja"
+                ],
+                "correct_answer": "D) Upendra Bhanja",
+                "explanation": "The Panchasakha consisted of Balaram Das, Jagannath Das, Achyutananda Das, Jasobanta Das, and Ananta Das. Upendra Bhanja (known as Kabi Samrat) belonged to the later 'Riti Yuga' (17th/18th century) known for complex, highly ornamented poetry."
+            },
+            {
+                "question_number": 32,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "Which masterpiece by Vyasakabi Fakir Mohan Senapati is widely considered the first modern Odia novel, dealing heavily with the exploitation of landless peasants by greedy Zamindars?",
+                "options": [
+                    "A) Mamu",
+                    "B) Chha Mana Atha Guntha",
+                    "C) Prayaschita",
+                    "D) Lachhama"
+                ],
+                "correct_answer": "B) Chha Mana Atha Guntha",
+                "explanation": "Published initially as a serial in 1897, 'Chha Mana Atha Guntha' (Six Acres and a Third) is Fakir Mohan Senapati's magnum opus. It is celebrated as the first Indian novel to deal with the grievances of landless peasants and the corrupt Zamindari system."
+            },
+            {
+                "question_number": 33,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "The epic poetic work 'Baidehisha Bilasa', where every single line strictly begins with the Odia letter 'Ba' (\u0b2c), was composed by which legendary poet?",
+                "options": [
+                    "A) Radhanath Ray",
+                    "B) Dinakrushna Das",
+                    "C) Upendra Bhanja",
+                    "D) Gangadhar Meher"
+                ],
+                "correct_answer": "C) Upendra Bhanja",
+                "explanation": "Kabi Samrat Upendra Bhanja was the master of the Riti Yuga style of poetry, characterized by intense wordplay and rules. His 'Baidehisha Bilasa' (a retelling of the Ramayana) is famous because every line begins with the consonant 'Ba'."
+            },
+            {
+                "question_number": 34,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "Who was the first Odia author to win the prestigious Jnanpith Award in 1973 for his monumental novel 'Mati Matala', which beautifully documents rural Odishan life?",
+                "options": [
+                    "A) Sitakant Mahapatra",
+                    "B) Sachidananda Routray",
+                    "C) Gopinath Mohanty",
+                    "D) Pratibha Ray"
+                ],
+                "correct_answer": "C) Gopinath Mohanty",
+                "explanation": "Gopinath Mohanty was the first Odia writer to receive the Jnanpith Award (in 1973 for 'Mati Matala'). He was shared the award with Kannada writer D.R. Bendre. (Sitakant Mahapatra, Sachi Routray, and Pratibha Ray also won it in later years)."
+            },
+            {
+                "question_number": 35,
+                "main_topic": "Odisha Heritage and Culture",
+                "sub_topic": "Literature & Language",
+                "question": "Though written entirely in Sanskrit, which 12th-century poetic masterpiece by Jayadeva forms the spiritual and musical foundation of Odissi dance and Jagannath Temple rituals?",
+                "options": [
+                    "A) Aryasaptasati",
+                    "B) Gita Govinda",
+                    "C) Panchatantra",
+                    "D) Surya Sataka"
+                ],
+                "correct_answer": "B) Gita Govinda",
+                "explanation": "Jayadeva's 'Gita Govinda', composed in the 12th century, details the divine love of Krishna and Radha. Despite being a Sanskrit text, it is deeply embedded in Odishan culture, sung daily in the Jagannath Temple and forming the abhinaya core of Odissi dance."
+            },
+            {
+                "question_number": 36,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Standard Categorical Syllogisms",
+                "question": "<strong>Statements:</strong><br>All Phones are Laptops.<br>Some Laptops are Tablets.<br>No Tablet is a Desktop.<br><br><strong>Conclusions:</strong><br>I. Some Phones are Tablets.<br>II. No Desktop is a Laptop.<br>III. Some Laptops are not Desktops.",
+                "options": [
+                    "A) Only Conclusion I follows",
+                    "B) Only Conclusion II follows",
+                    "C) Only Conclusion III follows",
+                    "D) Both II and III follow"
+                ],
+                "correct_answer": "C) Only Conclusion III follows",
+                "explanation": "Conclusion I is false (Phones and Tablets have no definite intersection in the Venn diagram). Conclusion II is false (Laptops and Desktops can intersect outside the Tablet circle). Conclusion III is true (The specific portion of Laptops that overlap with Tablets can NEVER be Desktops, because no Tablet is a Desktop)."
+            },
+            {
+                "question_number": 37,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Standard Categorical Syllogisms",
+                "question": "<strong>Statements:</strong><br>Only a few Cats are Dogs.<br>All Dogs are Wolves.<br>Some Wolves are Foxes.<br><br><strong>Conclusions:</strong><br>I. All Wolves being Cats is a possibility.<br>II. All Cats being Dogs is a possibility.",
+                "options": [
+                    "A) Only Conclusion I follows",
+                    "B) Only Conclusion II follows",
+                    "C) Both I and II follow",
+                    "D) Neither I nor II follows"
+                ],
+                "correct_answer": "A) Only Conclusion I follows",
+                "explanation": "'Only a few Cats are Dogs' means some cats are dogs, and some cats are definitely NOT dogs. Therefore, all Cats can never be Dogs (Conclusion II is false). However, there is no restriction preventing the entire Wolf circle from sitting inside the Cat circle, making Conclusion I a valid possibility."
+            },
+            {
+                "question_number": 38,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Standard Categorical Syllogisms",
+                "question": "<strong>Statements:</strong><br>No Blue is Red.<br>All Red are Green.<br>No Green is Yellow.<br><br><strong>Conclusions:</strong><br>I. Some Green are not Blue.<br>II. No Red is Yellow.",
+                "options": [
+                    "A) Only Conclusion I follows",
+                    "B) Only Conclusion II follows",
+                    "C) Both I and II follow",
+                    "D) Neither I nor II follows"
+                ],
+                "correct_answer": "C) Both I and II follow",
+                "explanation": "Conclusion I is true: The portion of Green that contains Red can never be Blue (because No Blue is Red). Conclusion II is true: Since all Red is completely inside Green, and No Green is Yellow, Red can never touch Yellow."
+            },
+            {
+                "question_number": 39,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Hidden Arithmetic Number Analogy",
+                "question": "Find the missing number in the mathematical analogy: 14 : 45 :: 26 : ?",
+                "options": [
+                    "A) 75",
+                    "B) 78",
+                    "C) 81",
+                    "D) 84"
+                ],
+                "correct_answer": "C) 81",
+                "explanation": "The hidden relationship involves a dual operation: (X * 3) + 3. For 14: (14 * 3) + 3 = 42 + 3 = 45. Applying the same logic to 26: (26 * 3) + 3 = 78 + 3 = 81."
+            },
+            {
+                "question_number": 40,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Hidden Arithmetic Number Analogy",
+                "question": "Find the missing number in the mathematical analogy: 8 : 504 :: 9 : ?",
+                "options": [
+                    "A) 720",
+                    "B) 729",
+                    "C) 738",
+                    "D) 711"
+                ],
+                "correct_answer": "A) 720",
+                "explanation": "The mathematical relationship is X³ - X. For 8: 8³ - 8 = 512 - 8 = 504. Applying the same logic to 9: 9³ - 9 = 729 - 9 = 720."
+            },
+            {
+                "question_number": 41,
+                "main_topic": "Logical Reasoning - Non-Verbal",
+                "sub_topic": "Missing Number Visual Puzzles",
+                "question": "Study the visual pattern in the given diagram carefully and find the missing number that replaces the question mark (?).<br><br><img src='Q41.png' alt='Circle divided into quadrants with numbers 5, 126, 6, and ?' style='max-width: 200px;'><br><br>(Assume the numbers in opposite quadrants share a specific mathematical relationship).",
+                "options": [
+                    "A) 215",
+                    "B) 217",
+                    "C) 344",
+                    "D) 342"
+                ],
+                "correct_answer": "B) 217",
+                "explanation": "In this visual matrix, the logic lies in the diagonally opposite quadrants. The relationship is (X³ + 1). Opposite to the number 5 is 126 (since 5³ + 1 = 125 + 1 = 126). Therefore, opposite the number 6, the value should be (6³ + 1) = 216 + 1 = 217."
+            },
+            {
+                "question_number": 42,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Alpha-Shift Letter Analogy",
+                "question": "Identify the correct missing cluster based on the letter-shift pattern: TANK : WYQI :: LOAD : ?",
+                "options": [
+                    "A) OQDF",
+                    "B) OMDB",
+                    "C) PNDB",
+                    "D) ORDB"
+                ],
+                "correct_answer": "B) OMDB",
+                "explanation": "The pattern alternates between shifting forward by 3 and backward by 2 (+3, -2, +3, -2). T(+3)=W, A(-2)=Y, N(+3)=Q, K(-2)=I. Applying to LOAD: L(+3)=O, O(-2)=M, A(+3)=D, D(-2)=B. Result is OMDB."
+            },
+            {
+                "question_number": 43,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Family Tree Derivation & Counting",
+                "question": "In a family of six members (A, B, C, D, E, F), there are exactly two married couples. D is the grandmother of A and mother of B. C is the wife of B and mother of F. F is the granddaughter of E. How many male members are there in this family?",
+                "options": [
+                    "A) 2",
+                    "B) 3",
+                    "C) 4",
+                    "D) Cannot be determined"
+                ],
+                "correct_answer": "D) Cannot be determined",
+                "explanation": "Let's build the tree: D is grandmother (Female) and mother of B. C is the wife (Female) of B, making B the husband (Male). F is the daughter of C and B (Female). E must be the husband of D to complete the two couples (E is Male). A is the grandchild. We know the genders of D(F), E(M), B(M), C(F), F(F). However, the gender of grandchild A is never specified. Thus, the exact number of males cannot be determined."
+            },
+            {
+                "question_number": 44,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Relative Perspective Blood Relations",
+                "question": "Pointing to a woman in a photograph, a man said, 'Her father is the only son of my father's father.' How is the man related to the woman?",
+                "options": [
+                    "A) Uncle",
+                    "B) Cousin",
+                    "C) Brother",
+                    "D) Father"
+                ],
+                "correct_answer": "C) Brother",
+                "explanation": "The man's 'father's father' is his grandfather. The 'only son' of the grandfather must be the man's own father. The statement says 'Her father' is this person. So, the woman's father is the same as the man's father. Therefore, they are siblings, making the man her brother."
+            },
+            {
+                "question_number": 45,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Artificial Language Phrase Cross-Referencing",
+                "question": "In a certain artificial language, 'gor blan morka' means 'blue sky clear', 'morka tez lo' means 'clear water flows', and 'lo gor zumi' means 'water blue deep'. Which word in that language means 'sky'?",
+                "options": [
+                    "A) gor",
+                    "B) morka",
+                    "C) blan",
+                    "D) zumi"
+                ],
+                "correct_answer": "C) blan",
+                "explanation": "Comparing 1st and 3rd phrases, 'gor' is common, and 'blue' is common (gor = blue). Comparing 1st and 2nd phrases, 'morka' is common, and 'clear' is common (morka = clear). In the 1st phrase, the remaining word 'blan' must mean 'sky'."
+            },
+            {
+                "question_number": 46,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Direct Concatenated Alpha-Rank String Mapping",
+                "question": "In a certain code language, if the word 'REASON' is coded as '1851191514', then how will the word 'TACKLE' be coded in that same language?",
+                "options": [
+                    "A) 201311125",
+                    "B) 2013111205",
+                    "C) 211311125",
+                    "D) 20111125"
+                ],
+                "correct_answer": "A) 201311125",
+                "explanation": "The numeric code is generated by converting each letter directly to its alphabetical rank (A=1, B=2 ... Z=26) and concatenating them. T=20, A=1, C=3, K=11, L=12, E=5. Connecting them gives 201311125."
+            },
+            {
+                "question_number": 47,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Iterative Algorithmic Machine Logic",
+                "question": "A numerical machine updates two values recursively. The initial values are X = 3 and Y = 4.<br>Step 1: X = X + Y<br>Step 2: Y = Y * 2<br>Step 3: If Y < 20, go back to Step 1. Else, Stop.<br>What is the final value of X when the machine stops?",
+                "options": [
+                    "A) 7",
+                    "B) 15",
+                    "C) 23",
+                    "D) 31"
+                ],
+                "correct_answer": "D) 31",
+                "explanation": "Iteration 1: X = 3+4=7. Y = 4*2=8. (8 < 20, repeat). Iteration 2: X = 7+8=15. Y = 8*2=16. (16 < 20, repeat). Iteration 3: X = 15+16=31. Y = 16*2=32. (32 < 20 is False, Stop). The final value of X is 31."
+            },
+            {
+                "question_number": 48,
+                "main_topic": "Logical Reasoning - Non-Verbal",
+                "sub_topic": "Pattern/Figure Completion",
+                "question": "Select the correct image tile from the options that will perfectly complete the 2x2 visual matrix in the given figure.<br><br><img src='Q48.png' alt='2x2 grid with bottom right box missing' style='max-width: 300px;'>",
+                "options": [
+                    "A) Tile 1",
+                    "B) Tile 2",
+                    "C) Tile 3",
+                    "D) Tile 4"
+                ],
+                "correct_answer": "C) Tile 3",
+                "explanation": "By observing the top row, the visual pattern dictates a 90-degree clockwise rotation of the interior geometric shape, followed by the inversion of its shading (black becomes white). Applying this exact rotation and shading inversion to the bottom-left tile results in Tile 3."
+            },
+            {
+                "question_number": 49,
+                "main_topic": "Logical Reasoning - Non-Verbal",
+                "sub_topic": "Visual Sequence Rule Matching",
+                "question": "<strong>Rule:</strong> 'Closed figures progressively lose their sides one by one, while open lines progressively connect to form closed shapes.'<br><br>Which of the following visual sequences (A, B, C, or D) perfectly strictly executes the rule stated above?<br><br><img src='Q49.png' alt='Four sequences of transforming shapes' style='max-width: 400px;'>",
+                "options": [
+                    "A) Sequence A",
+                    "B) Sequence B",
+                    "C) Sequence C",
+                    "D) Sequence D"
+                ],
+                "correct_answer": "D) Sequence D",
+                "explanation": "In Sequence D, the starting hexagon (6 sides) loses one side per step (becoming a pentagon, then a square), while the disjointed V-shape (2 lines) gains a line per step (becoming a triangle, then a square). This perfectly maps to the textual rule provided."
+            },
+            {
+                "question_number": 50,
+                "main_topic": "Logical Reasoning",
+                "sub_topic": "Odd Group/Word Out",
+                "question": "Four number pairs are given below. Three are alike in a certain mathematical manner, and one is different. Find the odd pair out.",
+                "options": [
+                    "A) 6 - 38",
+                    "B) 8 - 66",
+                    "C) 11 - 123",
+                    "D) 13 - 170"
+                ],
+                "correct_answer": "D) 13 - 170",
+                "explanation": "The core logic pattern is X : (X² + 2). 6²+2=38. 8²+2=66. 11²+2=123. However, 13²+2 should be 171, not 170. Option D breaks the rule."
+            },
+            {
+                "question_number": 51,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Variable Day/Task Matrix Scheduling",
+                "question": "<strong>Directions for Q51 to Q53: Study the following information carefully.</strong><br>Five employees (A, B, C, D, E) perform five different tasks (Audit, HR, IT, Sales, Legal) from Monday to Friday, one task per day.<br>1) C performs the Legal task, but not on Tuesday or Wednesday.<br>2) The IT task is performed on Thursday.<br>3) A performs his task on the day immediately before the person who handles Sales.<br>4) B handles HR on Monday.<br>5) E does not do the Sales task.<br><br>Who performs the IT task on Thursday?",
+                "options": [
+                    "A) A",
+                    "B) D",
+                    "C) E",
+                    "D) C"
+                ],
+                "correct_answer": "C) E",
+                "explanation": "Let's build the grid. Mon: B - HR. Thu: IT. C does Legal but not Tue/Wed. Since Mon is B, C must be Friday (Fri: C - Legal). A is immediately before Sales. If Sales is Wed, A is Tue. This fits. (If Sales was Thu, A would be Wed, but Thu is IT). So Tue is A, Wed is Sales. Remaining task for A on Tue is Audit. E does not do Sales, so E must be Thu (IT). Remaining person for Wed (Sales) is D. Grid: Mon (B-HR), Tue (A-Audit), Wed (D-Sales), Thu (E-IT), Fri (C-Legal)."
+            },
+            {
+                "question_number": 52,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Variable Day/Task Matrix Scheduling",
+                "question": "Based on the scheduling grid derived in the previous question, which task does A perform?",
+                "options": [
+                    "A) Audit",
+                    "B) Sales",
+                    "C) IT",
+                    "D) Legal"
+                ],
+                "correct_answer": "A) Audit",
+                "explanation": "From the completed grid: Mon (B-HR), Tue (A-Audit), Wed (D-Sales), Thu (E-IT), Fri (C-Legal). Employee A performs the Audit task on Tuesday."
+            },
+            {
+                "question_number": 53,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Variable Day/Task Matrix Scheduling",
+                "question": "Based on the scheduling grid, on which day does D perform his task?",
+                "options": [
+                    "A) Tuesday",
+                    "B) Wednesday",
+                    "C) Thursday",
+                    "D) Friday"
+                ],
+                "correct_answer": "B) Wednesday",
+                "explanation": "From the completed grid, D performs the Sales task on Wednesday."
+            },
+            {
+                "question_number": 54,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Turn Tracking with Pythagorean Distance",
+                "question": "A rover starts from a base station and moves 10 km North. It then turns right and travels 15 km. It turns right again and travels 18 km. Finally, it turns right once more and travels 15 km, stopping at a checkpoint. What is the shortest straight-line distance between the base station and the checkpoint?",
+                "options": [
+                    "A) 8 km",
+                    "B) 10 km",
+                    "C) 28 km",
+                    "D) 58 km"
+                ],
+                "correct_answer": "A) 8 km",
+                "explanation": "Let start be (0,0). North 10km -> (0, 10). Right (East) 15km -> (15, 10). Right (South) 18km -> (15, -8). Right (West) 15km -> (0, -8). The checkpoint is at (0, -8). The shortest distance from (0,0) is exactly 8 km along the Y-axis."
+            },
+            {
+                "question_number": 55,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Turn Tracking with Pythagorean Distance",
+                "question": "A drone flies 12 meters East. It then turns left and flies 5 meters. It turns left again and flies 24 meters. Finally, it turns left and flies 10 meters before hovering. What is the shortest straight-line distance between its starting point and its current hovering position?",
+                "options": [
+                    "A) 13 meters",
+                    "B) 17 meters",
+                    "C) 26 meters",
+                    "D) 51 meters"
+                ],
+                "correct_answer": "A) 13 meters",
+                "explanation": "Start at (0,0). East 12m -> (12, 0). Left (North) 5m -> (12, 5). Left (West) 24m -> (-12, 5). Left (South) 10m -> (-12, -5). Distance from (0,0) to (-12,-5) requires the Pythagorean theorem: √((-12)² + (-5)²) = √(144 + 25) = √169 = 13 meters."
+            },
+            {
+                "question_number": 56,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Set Venn Diagram (Intersections & Exclusions)",
+                "question": "In a corporate office of 100 employees, 60 play Cricket, 50 play Football, and 30 play Basketball. 20 play both Cricket and Football, 15 play Football and Basketball, and 10 play Cricket and Basketball. If 5 employees play all three sports, how many employees play EXACTLY ONE sport?",
+                "options": [
+                    "A) 140",
+                    "B) 65",
+                    "C) 75",
+                    "D) 85"
+                ],
+                "correct_answer": "B) 65",
+                "explanation": "Solve using Venn intersections: All 3 = 5. Only C+F = 20-5=15. Only F+B = 15-5=10. Only C+B = 10-5=5. Now find exactly one: Only Cricket = 60 - (15+5+5) = 35. Only Football = 50 - (15+5+10) = 20. Only Basketball = 30 - (10+5+5) = 10. Total playing exactly one sport = 35 + 20 + 10 = 65."
+            },
+            {
+                "question_number": 57,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Multi-Set Venn Diagram (Intersections & Exclusions)",
+                "question": "In a survey of 150 people, 80 drink Coffee, 60 drink Tea, and 40 drink neither. How many people drink ONLY Coffee?",
+                "options": [
+                    "A) 50",
+                    "B) 30",
+                    "C) 80",
+                    "D) 20"
+                ],
+                "correct_answer": "A) 50",
+                "explanation": "Total = 150. Neither = 40. At least one drink = 150 - 40 = 110. Formula: Coffee + Tea - Both = At least one. 80 + 60 - Both = 110. 140 - Both = 110. Both = 30. People drinking ONLY Coffee = Total Coffee - Both = 80 - 30 = 50."
+            },
+            {
+                "question_number": 58,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Categorical Matrix with Overlapping Percentages",
+                "question": "A college has 800 students. The ratio of boys to girls is 5:3. If 30% of the boys study French and 20% of the girls study French, what is the absolute total number of students who do NOT study French?",
+                "options": [
+                    "A) 400",
+                    "B) 590",
+                    "C) 610",
+                    "D) 210"
+                ],
+                "correct_answer": "B) 590",
+                "explanation": "Total = 800. Ratio 5:3 means Boys = 500, Girls = 300. Boys studying French = 30% of 500 = 150. Girls studying French = 20% of 300 = 60. Total studying French = 150 + 60 = 210. Students NOT studying French = 800 - 210 = 590. Option A traps students who just add 30%+20%=50% of 800."
+            },
+            {
+                "question_number": 59,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Logic Riddles (Combinatorics, Penality Scoring)",
+                "question": "In a competitive exam containing 100 questions, a student is awarded +4 marks for every correct answer and penalized -1 mark for every wrong answer. Unattempted questions receive 0 marks. A student attempts 80 questions and scores exactly 220 marks. How many questions did the student answer incorrectly?",
+                "options": [
+                    "A) 20",
+                    "B) 15",
+                    "C) 60",
+                    "D) 10"
+                ],
+                "correct_answer": "A) 20",
+                "explanation": "Let C be correct and W be wrong. Eq 1: C + W = 80. Eq 2: 4C - 1W = 220. Adding both equations: 5C = 300 -> C = 60. Since C + W = 80, W = 80 - 60 = 20 incorrect answers."
+            },
+            {
+                "question_number": 60,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Logic Riddles (Combinatorics, Penality Scoring)",
+                "question": "In a chess tournament, every participating team plays exactly one match against every other team. If a total of 120 matches were played in the tournament, how many teams participated?",
+                "options": [
+                    "A) 14400",
+                    "B) 15",
+                    "C) 16",
+                    "D) 240"
+                ],
+                "correct_answer": "C) 16",
+                "explanation": "The formula for total matches played in a round-robin tournament is n(n-1)/2, where n is the number of teams. So, n(n-1)/2 = 120 -> n² - n = 240 -> n² - n - 240 = 0. Factoring gives (n-16)(n+15) = 0. Since n must be positive, n = 16 teams. Option A traps students who square 120."
+            },
+            {
+                "question_number": 61,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "3-Statement Quantitative Redundancy",
+                "question": "<strong>Question:</strong> What is the specific two-digit number?<br><br><strong>Statements:</strong><br>I. The sum of the digits of the number is 10.<br>II. The difference between the original number and the number formed by reversing its digits is 36.<br>III. The tens digit is greater than the units digit by 4.<br><br>Which combination of statements is necessary to answer the question?",
+                "options": [
+                    "A) Only I and II are necessary",
+                    "B) Only II and III are necessary",
+                    "C) I and either II or III are necessary",
+                    "D) All I, II, and III are necessary"
+                ],
+                "correct_answer": "C) I and either II or III are necessary",
+                "explanation": "Let number be 10x+y. From I: x+y=10. From II: (10x+y) - (10y+x) = 36 -> 9(x-y)=36 -> x-y=4. From III: x-y=4. Statements II and III provide the exact same mathematical equation (they are redundant). You need Statement I to combine with either II or III to solve for x and y."
+            },
+            {
+                "question_number": 62,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Logic/Math Data Sufficiency",
+                "question": "<strong>Question:</strong> What is the present age of Rahul?<br><br><strong>Statements:</strong><br>I. The ratio of Rahul's age to his sister's age is 3:4.<br>II. After 5 years, the ratio of their ages will be 4:5.<br>III. Rahul's sister is currently 20 years old.<br><br>Which combination of statements is sufficient to answer the question?",
+                "options": [
+                    "A) Only I and II are sufficient",
+                    "B) Only II and III are sufficient",
+                    "C) Any two of the three statements are sufficient",
+                    "D) All I, II, and III are necessary"
+                ],
+                "correct_answer": "C) Any two of the three statements are sufficient",
+                "explanation": "Using I and II: Forms a linear equation ((3x+5)/(4x+5) = 4/5) solving to x=5, so Rahul is 15. Using I and III: If sister is 20 (4 parts), Rahul (3 parts) is 15. Using II and III: Sister's age in 5 yrs is 25 (5 parts), so Rahul in 5 yrs is 20 (4 parts). His present age is 15. Any pairing yields the answer; the third is always redundant."
+            },
+            {
+                "question_number": 63,
+                "main_topic": "Logical Reasoning - Analytical",
+                "sub_topic": "Single Linear Row with Negative Embedded Constraints",
+                "question": "Five friends (T, P, Q, S, R) are sitting in a single row facing North. \n1. T is sitting to the immediate left of P.\n2. R is sitting second to the right of Q.\n3. S is not sitting at either of the extreme ends of the row.\n4. Q is sitting to the immediate right of P.\nWho is sitting exactly in the middle of the row?",
+                "options": [
+                    "A) S",
+                    "B) P",
+                    "C) Q",
+                    "D) R"
+                ],
+                "correct_answer": "C) Q",
+                "explanation": "From (1) and (4), the sequence is T, P, Q. From (2), R is second to the right of Q, making it T, P, Q, _, R. This perfectly fills 5 seats. S is the remaining person, so S takes the 4th seat: T, P, Q, S, R. S is not at an extreme end (Rule 3 satisfied). The person in the middle (3rd position) is Q."
+            },
+            {
+                "question_number": 64,
+                "main_topic": "Logical Reasoning - Non-Verbal",
+                "sub_topic": "Figure Counting (Triangles)",
+                "question": "Carefully analyze the given geometric figure. What is the exact total number of triangles present in this image?<br><br><img src='Q64.png' alt='Square subdivided by two diagonals and internal lines' style='max-width: 250px;'>",
+                "options": [
+                    "A) 12",
+                    "B) 16",
+                    "C) 24",
+                    "D) 28"
+                ],
+                "correct_answer": "C) 24",
+                "explanation": "In a standard square divided by two intersecting diagonals and vertical/horizontal bisectors, the shortcut formula for counting triangles is (Number of smallest base triangles × 2). Here, there are 8 small base triangles originating from the center point. 8 × 2 = 16 triangles. Additionally, the outer border triangles intersecting at the corners add 8 more hidden triangles, bringing the total strictly to 24."
+            },
+
+            {
+                "question_number": 65,
+                "main_topic": "Logical Reasoning - Non-Verbal",
+                "sub_topic": "Odd Figure Out",
+                "question": "Four distinct geometric figures are shown below. Three of them share a specific underlying spatial relationship, while one is an anomaly. Choose the figure which is different from the rest.<br><br><img src='Q65.png' alt='Four geometric figures with internal dots' style='max-width: 400px;'>",
+                "options": [
+                    "A) Figure A",
+                    "B) Figure B",
+                    "C) Figure C",
+                    "D) Figure D"
+                ],
+                "correct_answer": "B) Figure B",
+                "explanation": "The hidden internal rule is that the number of dots inside the shape is exactly equal to the number of straight sides the outer polygon has (e.g., a pentagon has 5 dots, a triangle has 3 dots). Figure B shows a hexagon (6 sides) but contains 7 interior dots, making it the odd one out."
+            },
+            {
+                "question_number": 66,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Faulty Weights & Free Adulteration",
+                "question": "A dishonest sweet vendor professes to sell his goods strictly at the Cost Price. However, he uses a false weight of 750 grams for every 1 kilogram. What is his actual profit percentage?",
+                "options": [
+                    "A) 20%",
+                    "B) 25%",
+                    "C) 30%",
+                    "D) 33.33%"
+                ],
+                "correct_answer": "D) 33.33%",
+                "explanation": "Let the cost price of 1000g be Rs. 1000. He charges the customer for 1000g (SP = Rs. 1000), but he only gives 750g of goods. His actual cost price for the 750g given is Rs. 750. Profit = 1000 - 750 = Rs. 250. Actual Profit % = (250 / 750) * 100 = 33.33%. Option B (25%) is a trap for students who divide the 250g profit by the 1000g true weight."
+            },
+            {
+                "question_number": 67,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Faulty Weights & Free Adulteration",
+                "question": "A milkman mixes freely available water into pure milk. If he sells the resulting adulterated mixture exactly at the cost price of the pure milk and still manages to gain a 20% profit, what is the ratio of water to pure milk in the mixture?",
+                "options": [
+                    "A) 1 : 5",
+                    "B) 1 : 6",
+                    "C) 5 : 1",
+                    "D) 4 : 5"
+                ],
+                "correct_answer": "A) 1 : 5",
+                "explanation": "Since the mixture is sold at the Cost Price of pure milk, the entire 20% profit is derived solely from the volume of the free water added. Profit % = (Volume of Water / Volume of Pure Milk) * 100. 20 = (W / M) * 100 -> W / M = 20 / 100 = 1 / 5. The ratio is 1:5. Option B (1:6) is a trap that calculates the water ratio against the total mixture volume instead of the pure milk base."
+            },
+            {
+                "question_number": 68,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Quantity Equivalency & Same Selling Price Rule",
+                "question": "A shopkeeper sells two identical smartphones for Rs. 12,000 each. On the first smartphone, he gains a 25% profit, and on the second smartphone, he suffers a 25% loss. What is his overall net profit or loss percentage on the entire transaction?",
+                "options": [
+                    "A) No profit, no loss",
+                    "B) 6.25% profit",
+                    "C) 6.25% loss",
+                    "D) 12.5% loss"
+                ],
+                "correct_answer": "C) 6.25% loss",
+                "explanation": "When two distinct items are sold at the exact same Selling Price, and one yields an x% profit while the other yields an x% loss, the transaction ALWAYS results in a net loss. The formula is Loss % = (x^2) / 100. Here, (25^2) / 100 = 625 / 100 = 6.25% loss. Option A is a trap for students who assume the +25% and -25% cancel each other out logically."
+            },
+            {
+                "question_number": 69,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Mixture Target Profit & Alligation",
+                "question": "A trader mixes two varieties of wheat costing Rs. 40 per kg and Rs. 65 per kg. In what weight ratio must he mix them so that by selling the final mixture at Rs. 60 per kg, he earns an exact profit of 20%?",
+                "options": [
+                    "A) 2 : 3",
+                    "B) 3 : 2",
+                    "C) 1 : 1",
+                    "D) 5 : 4"
+                ],
+                "correct_answer": "B) 3 : 2",
+                "explanation": "First, find the true Cost Price (CP) of the mixture. Selling Price (SP) = Rs. 60. Profit = 20%. CP = (100 / 120) * 60 = Rs. 50 per kg. Now use the Alligation cross-method: Component A (40) and Component B (65), Mean (50). Ratio = (65 - 50) : (50 - 40) = 15 : 10 = 3 : 2. Option C (1:1) traps students who just take the unweighted average of 40 and 65."
+            },
+            {
+                "question_number": 70,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Mixture Target Profit & Alligation",
+                "question": "A merchant has 1000 kg of sugar. He sells a part of it at an 8% profit and the rest at an 18% profit. He gains exactly 14% on the whole transaction. Find the absolute quantity of sugar sold at the 18% profit.",
+                "options": [
+                    "A) 400 kg",
+                    "B) 500 kg",
+                    "C) 600 kg",
+                    "D) 700 kg"
+                ],
+                "correct_answer": "C) 600 kg",
+                "explanation": "Use the Alligation cross-method: Part 1 (+8%) and Part 2 (+18%), Mean (+14%). The ratio is (18 - 14) : (14 - 8) = 4 : 6 = 2 : 3. The total ratio parts = 2 + 3 = 5. The quantity sold at 18% corresponds to the 3 parts. Therefore, (3 / 5) * 1000 = 600 kg. Option B traps students calculating the simple unweighted average."
+            },
+            {
+                "question_number": 71,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Discount/Markup Profit Shifting",
+                "question": "A shopkeeper allows a 10% discount on the marked price of an article and still manages to earn a 26% profit. What will be his exact profit percentage if he decides to reduce the discount to only 5%?",
+                "options": [
+                    "A) 21%",
+                    "B) 31%",
+                    "C) 33%",
+                    "D) 35%"
+                ],
+                "correct_answer": "C) 33%",
+                "explanation": "Use the direct CP to MP ratio formula: CP / MP = (100 - Discount%) / (100 + Profit%). CP / MP = (100 - 10) / (100 + 26) = 90 / 126 = 5 / 7. Let CP = 500 and MP = 700. If the new discount is 5%, SP = 95% of 700 = 665. New Profit = 665 - 500 = 165. Profit % = (165 / 500) * 100 = 33%. Option B (31%) is the mathematical trap of directly adding the 5% difference in discount to the 26% original profit."
+            },
+            {
+                "question_number": 72,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Discount/Markup Profit Shifting",
+                "question": "A merchant marks his goods up such that after allowing a 20% discount, he makes a 12% profit. If he were to sell the exact same goods at the Marked Price without offering any discount whatsoever, what would be his profit percentage?",
+                "options": [
+                    "A) 32%",
+                    "B) 36%",
+                    "C) 40%",
+                    "D) 44%"
+                ],
+                "correct_answer": "C) 40%",
+                "explanation": "Ratio of CP to MP = (100 - 20) / (100 + 12) = 80 / 112 = 5 / 7. Let CP = 500 and MP = 700. If no discount is offered, SP = MP = 700. Profit = 700 - 500 = 200. Profit % = (200 / 500) * 100 = 40%. Option A (32%) is the direct addition of 20% + 12%, which is mathematically invalid."
+            },
+            {
+                "question_number": 73,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "2-Year SI & CI Differences",
+                "question": "The absolute mathematical difference between the Compound Interest (compounded annually) and the Simple Interest on a certain sum of money for exactly 2 years at 15% per annum is Rs. 180. What is the original Principal sum?",
+                "options": [
+                    "A) Rs. 6,000",
+                    "B) Rs. 8,000",
+                    "C) Rs. 10,000",
+                    "D) Rs. 12,000"
+                ],
+                "correct_answer": "B) Rs. 8,000",
+                "explanation": "For exactly 2 years, the shortcut formula is Difference = P(R/100)^2. Plugging in the values: 180 = P(15/100)^2. 180 = P(225 / 10000). P = (180 * 10000) / 225 = 1800000 / 225 = Rs. 8,000."
+            },
+            {
+                "question_number": 74,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "2-Year SI & CI Differences",
+                "question": "The Simple Interest on a certain sum for 2 years is Rs. 400, and the Compound Interest on the exact same sum for the same 2-year period at the same rate is Rs. 420. What is the Principal sum?",
+                "options": [
+                    "A) Rs. 1,000",
+                    "B) Rs. 1,500",
+                    "C) Rs. 2,000",
+                    "D) Rs. 4,000"
+                ],
+                "correct_answer": "C) Rs. 2,000",
+                "explanation": "SI for 2 years is Rs. 400, so SI for 1 year is Rs. 200. The difference between CI and SI (420 - 400 = 20) is the interest generated in the second year purely on the first year's interest (Rs. 200). Therefore, Rate % = (20 / 200) * 100 = 10%. Now, we know SI for 1 year is 200 at 10%. Principal = (SI * 100) / (R * T) = (200 * 100) / (10 * 1) = Rs. 2,000."
+            },
+            {
+                "question_number": 75,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Rate Delta & Variable Interest (SI)",
+                "question": "A sum was invested at Simple Interest at a certain fixed rate for exactly 4 years. Had it been invested at a 5% higher rate, it would have fetched Rs. 800 more. What is the original Principal sum?",
+                "options": [
+                    "A) Rs. 20,000",
+                    "B) Rs. 4,000",
+                    "C) Rs. 3,200",
+                    "D) Rs. 8,000"
+                ],
+                "correct_answer": "B) Rs. 4,000",
+                "explanation": "The extra interest earned (Rs. 800) is generated entirely by the extra 5% rate applied over the 4 years. Delta Interest = (Principal * Delta Rate * Time) / 100. 800 = (P * 5 * 4) / 100. 800 = 20P / 100. 20P = 80000. P = Rs. 4,000. Option A traps students who treat the Rs. 800 as the total interest rather than the delta."
+            },
+            {
+                "question_number": 76,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Rate Delta & Variable Interest (SI)",
+                "question": "An investor lends Rs. 10,000 at Simple Interest for 2 years. After 2 years, he increases the interest rate by 3% and leaves the money invested for another 3 years. If the total interest earned over the 5 years is Rs. 4,900, what was the initial rate of interest?",
+                "options": [
+                    "A) 6%",
+                    "B) 7%",
+                    "C) 8%",
+                    "D) 9%"
+                ],
+                "correct_answer": "C) 8%",
+                "explanation": "Let initial rate be R. Interest for first 2 years = (10000 * R * 2)/100 = 200R. Interest for next 3 years at (R+3)% = (10000 * (R+3) * 3)/100 = 300(R+3) = 300R + 900. Total Interest = 200R + 300R + 900 = 4900. 500R = 4000. R = 8%."
+            },
+            {
+                "question_number": 77,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Fractional Withdrawals & Dynamic Capital",
+                "question": "A and B enter into a partnership with capitals in the ratio 4:5. After exactly 3 months, A withdraws 1/4th of his capital, while B withdraws 1/5th of his capital. If the total annual profit at the end of the year is Rs. 18,000, what is A's share?",
+                "options": [
+                    "A) Rs. 6,500",
+                    "B) Rs. 7,800",
+                    "C) Rs. 8,500",
+                    "D) Rs. 10,200"
+                ],
+                "correct_answer": "B) Rs. 7,800",
+                "explanation": "Let initial capitals be 4x and 5x. A's effective capital = (4x * 3 months) + (3x * 9 months) = 12x + 27x = 39x. B's effective capital = (5x * 3 months) + (4x * 9 months) = 15x + 36x = 51x. Profit Ratio = 39 : 51 = 13 : 17. Total ratio parts = 30. A's share = (13 / 30) * 18000 = 13 * 600 = Rs. 7,800. Option C distributes profit based solely on the final 9-month balances (3:4)."
+            },
+            {
+                "question_number": 78,
+                "main_topic": "Commercial Mathematics",
+                "sub_topic": "Fractional Withdrawals & Dynamic Capital",
+                "question": "P, Q, and R start a business. P invests 3 times as much as Q invests, and Q invests 2/3rd of what R invests. At the end of the year, the total profit earned is Rs. 13,200. What is P's exact share of the profit?",
+                "options": [
+                    "A) Rs. 3,600",
+                    "B) Rs. 4,400",
+                    "C) Rs. 7,200",
+                    "D) Rs. 8,400"
+                ],
+                "correct_answer": "C) Rs. 7,200",
+                "explanation": "Let R's investment be 3x. Then Q's investment = (2/3) * 3x = 2x. P's investment = 3 * 2x = 6x. Ratio of capitals (and thus profits) P : Q : R = 6x : 2x : 3x = 6 : 2 : 3. Total ratio parts = 6 + 2 + 3 = 11. P's share = (6 / 11) * 13200 = 6 * 1200 = Rs. 7,200."
+            },
+            {
+                "question_number": 79,
+                "main_topic": "Number System",
+                "sub_topic": "Multiplicative & Alternating Missing Number Series",
+                "question": "Find the missing number in the following mathematical sequence: 2, 5, 17, 71, ?, 2159",
+                "options": [
+                    "A) 284",
+                    "B) 355",
+                    "C) 359",
+                    "D) 426"
+                ],
+                "correct_answer": "C) 359",
+                "explanation": "The sequence follows an (x * N) + (N - 1) multiplicative pattern causing rapid exponential jumps. 2 * 2 + 1 = 5. 5 * 3 + 2 = 17. 17 * 4 + 3 = 71. 71 * 5 + 4 = 359. Checking the final term: 359 * 6 + 5 = 2154 + 5 = 2159. Option B traps students who simply multiply by 5 without adding the scalar."
+            },
+            {
+                "question_number": 80,
+                "main_topic": "Number System",
+                "sub_topic": "Multiplicative & Alternating Missing Number Series",
+                "question": "Find the missing number in the following alternating mathematical sequence: 10, 15, 30, 35, 70, 75, ?",
+                "options": [
+                    "A) 80",
+                    "B) 110",
+                    "C) 145",
+                    "D) 150"
+                ],
+                "correct_answer": "D) 150",
+                "explanation": "The sequence weaves two entirely independent mathematical operations in an alternating fashion: Add 5, then Multiply by 2. 10 + 5 = 15. 15 * 2 = 30. 30 + 5 = 35. 35 * 2 = 70. 70 + 5 = 75. Therefore, the next step must be multiplication: 75 * 2 = 150. Option A continues the wrong alternate thread (+5)."
+            },
+            {
+                "question_number": 81,
+                "main_topic": "Number System",
+                "sub_topic": "Nested BODMAS & Continuous Division",
+                "question": "Evaluate the following mathematical expression exactly according to operational hierarchy rules: 144 ÷ 12 of 3 + [ 36 - { 6 × (5 + 1) } ÷ 12 ]",
+                "options": [
+                    "A) 34",
+                    "B) 37",
+                    "C) 69",
+                    "D) 73"
+                ],
+                "correct_answer": "B) 37",
+                "explanation": "According to BODMAS, 'Of' is resolved before division. 12 of 3 = 36. So, 144 ÷ 36 = 4. Inside the brackets: (5 + 1) = 6. Multiplication next: 6 × 6 = 36. Division next: 36 ÷ 12 = 3. Subtraction inside square bracket: [ 36 - 3 ] = 33. Final addition: 4 + 33 = 37. Option C is the trap where division is executed before 'Of' (144 ÷ 12 = 12 * 3 = 36 + 33 = 69)."
+            },
+            {
+                "question_number": 82,
+                "main_topic": "Number System",
+                "sub_topic": "Nested BODMAS & Continuous Division",
+                "question": "Evaluate the following mathematical expression: 72 ÷ 6 of 2 + [ 18 - { 4 × (2 + 3) } ÷ 10 ]",
+                "options": [
+                    "A) 18",
+                    "B) 22",
+                    "C) 28",
+                    "D) 34"
+                ],
+                "correct_answer": "B) 22",
+                "explanation": "BODMAS dictates 'Of' first: 6 of 2 = 12. Then 72 ÷ 12 = 6. Inside brackets: (2 + 3) = 5. Then 4 × 5 = 20. Then 20 ÷ 10 = 2. Square brackets: [18 - 2] = 16. Finally, 6 + 16 = 22. Option D is the trap if division occurs before 'Of'."
+            },
+            {
+                "question_number": 83,
+                "main_topic": "Number System",
+                "sub_topic": "Coin Combinations & Multiples Frequency",
+                "question": "A bag contains coins of Rs. 1, 50-paise, and 25-paise denominations in the ratio of 4 : 5 : 6. If the total absolute monetary amount in the bag is Rs. 160, find the exact number of 50-paise coins.",
+                "options": [
+                    "A) 50",
+                    "B) 80",
+                    "C) 100",
+                    "D) 120"
+                ],
+                "correct_answer": "C) 100",
+                "explanation": "The quantity ratio MUST be multiplied by the monetary value of each denomination to create a 'value ratio' before dividing the total sum. Value Ratio = (4 * Rs. 1) : (5 * Rs. 0.50) : (6 * Rs. 0.25) = 4 : 2.5 : 1.5. Total value parts = 4 + 2.5 + 1.5 = 8 parts. 8 parts = Rs. 160, so 1 part = Rs. 20. Total value of 50-paise coins = 2.5 * 20 = Rs. 50. Since each coin is Rs. 0.50, number of coins = 50 / 0.50 = 100 coins."
+            },
+            {
+                "question_number": 84,
+                "main_topic": "Number System",
+                "sub_topic": "Coin Combinations & Multiples Frequency",
+                "question": "Counting sequentially, how many times does the exact digit '7' appear across the continuous range of whole numbers from 1 to 100?",
+                "options": [
+                    "A) 18",
+                    "B) 19",
+                    "C) 20",
+                    "D) 21"
+                ],
+                "correct_answer": "C) 20",
+                "explanation": "Count appearances in the units place: 7, 17, 27, 37, 47, 57, 67, 77, 87, 97 (10 times). Count appearances in the tens place (crossing the decade boundary): 70, 71, 72, 73, 74, 75, 76, 77, 78, 79 (10 times). The number 77 is correctly counted twice because the digit appears twice. Total = 10 + 10 = 20 times. Option B assumes the student misses the double count on 77."
+            },
+            {
+                "question_number": 85,
+                "main_topic": "Number System",
+                "sub_topic": "Two-Digit Reversal Equations & Place Value",
+                "question": "The sum of the digits of a two-digit number is 12. If the digits are reversed, the newly formed number is exactly 54 greater than the original number. What is the original number?",
+                "options": [
+                    "A) 39",
+                    "B) 48",
+                    "C) 84",
+                    "D) 93"
+                ],
+                "correct_answer": "A) 39",
+                "explanation": "Let the original number be 10x + y. Reversal gives 10y + x. Given: x + y = 12. Also given: (10y + x) - (10x + y) = 54, which simplifies to 9(y - x) = 54, meaning y - x = 6. Add equations: (x + y = 12) and (-x + y = 6). 2y = 18 -> y = 9. Therefore, x = 3. The original number is 39."
+            },
+            {
+                "question_number": 86,
+                "main_topic": "Number System",
+                "sub_topic": "Two-Digit Reversal Equations & Place Value",
+                "question": "The mathematical difference between a two-digit number and the number obtained by interchanging its digits is 45. If the sum of its two digits is 9, what is the original number?",
+                "options": [
+                    "A) 27",
+                    "B) 36",
+                    "C) 63",
+                    "D) 72"
+                ],
+                "correct_answer": "D) 72",
+                "explanation": "Original number = 10x + y. Reversed = 10y + x. Difference is 9(x - y) = 45 -> x - y = 5. We are given the sum x + y = 9. Adding both equations gives 2x = 14, so x = 7 and y = 2. The original number is 72. Option A is the reversed number, which yields -45 difference."
+            },
+            {
+                "question_number": 87,
+                "main_topic": "Number System",
+                "sub_topic": "Total Divisors, Trailing Zeros & Unit Digits",
+                "question": "What is the unit digit of the mathematical expression: 234^94 + 234^95?",
+                "options": [
+                    "A) 0",
+                    "B) 2",
+                    "C) 6",
+                    "D) 8"
+                ],
+                "correct_answer": "A) 0",
+                "explanation": "For any number ending in 4, the unit digit follows a cycle of 2: 4^odd ends in 4, 4^even ends in 6. Here, 94 is even, so 234^94 ends in 6. 95 is odd, so 234^95 ends in 4. Summing the unit digits: 6 + 4 = 10. Therefore, the final unit digit of the expression is 0."
+            },
+            {
+                "question_number": 88,
+                "main_topic": "Number System",
+                "sub_topic": "Total Divisors, Trailing Zeros & Unit Digits",
+                "question": "How many trailing zeros are there in the final sum of the following mathematical series: 10^1 + 10^2 + 10^3 + 10^4 + ... + 10^50?",
+                "options": [
+                    "A) 0",
+                    "B) 1",
+                    "C) 50",
+                    "D) 1275"
+                ],
+                "correct_answer": "B) 1",
+                "explanation": "This strictly uses addition (+) to trap students expecting multiplication. 10^1 = 10. 10^2 = 100. 10^3 = 1000. When you add these together (10 + 100 + 1000...), the final sum will look like ...11111110. Because the smallest term (10) only has one zero, the entire addition will only have exactly 1 trailing zero. Option D traps students who sum the exponents."
+            },
+            {
+                "question_number": 89,
+                "main_topic": "Number System",
+                "sub_topic": "Basic Linear Equations & Fraction Alterations",
+                "question": "The denominator of a certain fraction is 2 more than its numerator. If 2 is added to both the numerator and the denominator, the newly formed fraction evaluates to 3/4. What was the original fraction?",
+                "options": [
+                    "A) 3/5",
+                    "B) 4/6",
+                    "C) 5/7",
+                    "D) 6/8"
+                ],
+                "correct_answer": "B) 4/6",
+                "explanation": "Let the numerator be x. The denominator is x + 2. Original fraction = x / (x + 2). Adding 2 to both: (x + 2) / (x + 4) = 3/4. Cross-multiplying: 4(x + 2) = 3(x + 4) -> 4x + 8 = 3x + 12 -> x = 4. Since the numerator is 4, the denominator is 4 + 2 = 6. The original unsimplified fraction is 4/6."
+            },
+            {
+                "question_number": 90,
+                "main_topic": "Number System",
+                "sub_topic": "Basic Linear Equations & Fraction Alterations",
+                "question": "If 1 is subtracted from both the numerator and the denominator of a fraction, it becomes 1/3. If 1 is added to both the numerator and the denominator, it becomes 1/2. Find the original fraction.",
+                "options": [
+                    "A) 2/5",
+                    "B) 3/7",
+                    "C) 4/9",
+                    "D) 5/11"
+                ],
+                "correct_answer": "B) 3/7",
+                "explanation": "Let fraction be x/y. Eq 1: (x - 1) / (y - 1) = 1/3 -> 3x - 3 = y - 1 -> 3x - y = 2. Eq 2: (x + 1) / (y + 1) = 1/2 -> 2x + 2 = y + 1 -> 2x - y = -1. Subtracting Eq 2 from Eq 1: (3x - y) - (2x - y) = 2 - (-1) -> x = 3. Substituting x in Eq 1: 9 - y = 2 -> y = 7. The fraction is 3/7."
+            },
+
+            {
+                "question_number": 91,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - Keyboard Shortcuts",
+                "question": "What specific action does pressing the F12 function key perform in Microsoft Office applications?",
+                "options": [
+                    "A) It opens the Help menu.",
+                    "B) It saves the document over the existing file.",
+                    "C) It opens the 'Save As' dialog box.",
+                    "D) It opens the Find and Replace dialog."
+                ],
+                "correct_answer": "C) It opens the 'Save As' dialog box.",
+                "explanation": "Pressing F12 explicitly opens the 'Save As' dialog box, allowing you to save a new copy or change the file format. Option B is the trap for Ctrl+S, which simply saves over the current file without a dialog prompt."
+            }, {
+                "question_number": 92,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - Keyboard Shortcuts",
+                "question": "What is the exact keyboard shortcut combination required to open the 'Find and Replace' dialog box in MS Word?",
+                "options": [
+                    "A) Ctrl + F",
+                    "B) Ctrl + R",
+                    "C) Alt + H",
+                    "D) Ctrl + H"
+                ],
+                "correct_answer": "D) Ctrl + H",
+                "explanation": "Ctrl + H opens the 'Find and Replace' dialog box. Option A (Ctrl + F) only opens the Find navigation pane. Option B (Ctrl + R) is used to right-align text."
+            }, {
+                "question_number": 93,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS Word Applications",
+                "question": "If you want to apply the exact same text formatting (font, size, color, style) from one paragraph to another in MS Word, which specific tool should you use?",
+                "options": [
+                    "A) Styles Pane",
+                    "B) Copy Painter",
+                    "C) Format Painter",
+                    "D) AutoFormat"
+                ],
+                "correct_answer": "C) Format Painter",
+                "explanation": "The Format Painter is the specific tool used to copy all formatting attributes from one object or text selection and apply them to another. 'Copy Painter' is a non-existent, plausible-sounding trap."
+            }, {
+                "question_number": 94,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS Word Applications",
+                "question": "In older legacy versions of MS Word (like Office 2003), if you needed to change the typeface (font) of a document, which drop-down menu would you strictly navigate to?",
+                "options": [
+                    "A) Edit",
+                    "B) Insert",
+                    "C) Format",
+                    "D) Tools"
+                ],
+                "correct_answer": "C) Format",
+                "explanation": "In legacy MS Word versions, anything regarding text appearance or changing the typeface (font) was strictly located in the Format menu."
+            }, {
+                "question_number": 95,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS Excel Functions",
+                "question": "Which of the following is the correct menu path and function to lock specific rows or columns in MS Excel so they remain visible while scrolling through a massive spreadsheet?",
+                "options": [
+                    "A) Review > Lock Cells",
+                    "B) View > Freeze Panes",
+                    "C) View > Freeze Columns",
+                    "D) Page Layout > Anchor Rows"
+                ],
+                "correct_answer": "B) View > Freeze Panes",
+                "explanation": "The correct function to lock rows/columns while scrolling is 'Freeze Panes', found under the View tab. Option C is a slightly incorrect menu path designed to trap those who don't know the exact terminology."
+            }, {
+                "question_number": 96,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS Excel Functions",
+                "question": "If you type a long sentence into a tiny cell in MS Excel and want it to break down into multiple lines within that single cell without overflowing into adjacent cells, what feature must you use?",
+                "options": [
+                    "A) Insert > Line Break",
+                    "B) Edit > Justify",
+                    "C) Format > Cells > Wrap Text",
+                    "D) Data > Filter"
+                ],
+                "correct_answer": "C) Format > Cells > Wrap Text",
+                "explanation": "To prevent long text from overflowing into adjacent cells, you break it down into multiple lines within the same cell using the 'Wrap Text' feature."
+            }, {
+                "question_number": 97,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS PowerPoint Presentations",
+                "question": "In MS PowerPoint, which specific view or tool is used to edit the layout and formatting of the printed pages that the audience takes home, without altering the actual slides presented on screen?",
+                "options": [
+                    "A) Slide Master",
+                    "B) Handout Master",
+                    "C) Slide Sorter",
+                    "D) Notes Page"
+                ],
+                "correct_answer": "B) Handout Master",
+                "explanation": "The Handout Master strictly defines the layout, headers, and formatting for printed audience handouts. Option A (Slide Master) dictates the on-screen design of the presentation itself."
+            }, {
+                "question_number": 98,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS PowerPoint Presentations",
+                "question": "What PowerPoint feature will you use to apply motion effects to different distinct objects (like a text box or an image) on a single slide?",
+                "options": [
+                    "A) Slide Transition",
+                    "B) Slide Design",
+                    "C) Animation Objects",
+                    "D) Slide Sorter"
+                ],
+                "correct_answer": "C) Animation Objects",
+                "explanation": "Animation is the effect applied to individual objects moving around on a single slide. Slide Transition (Option A) applies to the movement from one slide to the next."
+            }, {
+                "question_number": 99,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS Access Databases",
+                "question": "In Microsoft Access, which specific view allows you to modify a table's underlying structure, such as changing data types and setting Primary Keys, rather than just entering data?",
+                "options": [
+                    "A) Datasheet View",
+                    "B) Design View",
+                    "C) Layout View",
+                    "D) Pivot Table View"
+                ],
+                "correct_answer": "B) Design View",
+                "explanation": "Design View is the 'builder' mode where you set up the columns, data types, and structural rules. Datasheet View (Option A) is used strictly for data entry and viewing."
+            }, {
+                "question_number": 100,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Microsoft Office Suite - MS Access Databases",
+                "question": "When working in MS Access, what is the primary structural difference between a 'Form' and a 'Report'?",
+                "options": [
+                    "A) A Form is used for printing data summaries, while a Report is used to enter new data.",
+                    "B) A Form is used for viewing and entering data interactively, while a Report is specifically designed for formatting and printing data.",
+                    "C) A Form modifies the table's columns, while a Report modifies the rows.",
+                    "D) There is no difference; they are interchangeable terms for data queries."
+                ],
+                "correct_answer": "B) A Form is used for viewing and entering data interactively, while a Report is specifically designed for formatting and printing data.",
+                "explanation": "Forms are GUI windows designed for users to easily enter and edit database records. Reports are static outputs designed strictly to format, summarize, and print data."
+            }, {
+                "question_number": 101,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Internet & Networking - Network Architecture & Hardware",
+                "question": "Which of the following devices is specifically designed to forward data packets between different distinct networks by processing routing information?",
+                "options": [
+                    "A) Hub",
+                    "B) Switch",
+                    "C) Modem",
+                    "D) Router"
+                ],
+                "correct_answer": "D) Router",
+                "explanation": "A router is the 'Highway Navigator' that forwards packets between different networks (like connecting a home LAN to the global WAN). A Hub (Option A) blindly shouts data to all connected computers on the same network without routing logic."
+            }, {
+                "question_number": 102,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Internet & Networking - Network Architecture & Hardware",
+                "question": "In the context of network architecture, what does the abbreviation 'OSI' stand for?",
+                "options": [
+                    "A) Open Source Integration",
+                    "B) Operating System Interface",
+                    "C) Open System Interconnection",
+                    "D) Optical Server Internet"
+                ],
+                "correct_answer": "C) Open System Interconnection",
+                "explanation": "The OSI model stands for Open System Interconnection, which is a conceptual 7-layer framework used to describe the functions of a networking system."
+            }, {
+                "question_number": 103,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Internet & Networking - Web Technologies & Protocols",
+                "question": "An IP address acts as a unique identifier for devices on the internet. How is the standard IPv4 address mathematically structured?",
+                "options": [
+                    "A) It is a 32-byte address.",
+                    "B) It is a 32-bit address.",
+                    "C) It is a 128-bit address.",
+                    "D) It is a 64-bit address."
+                ],
+                "correct_answer": "B) It is a 32-bit address.",
+                "explanation": "The standard IPv4 address is structurally a 32-bit number. Option A is a specific trap confusing bits with bytes. (Note: IPv6 is 128-bit)."
+            }, {
+                "question_number": 104,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Internet & Networking - Web Technologies & Protocols",
+                "question": "When you type a human-friendly web address like 'www.google.com' into your browser, what specific protocol or system translates that name into the numerical IP address the computer needs?",
+                "options": [
+                    "A) HTTP (HyperText Transfer Protocol)",
+                    "B) Domain Naming Standard",
+                    "C) DNS (Domain Name System)",
+                    "D) URL (Uniform Resource Locator)"
+                ],
+                "correct_answer": "C) DNS (Domain Name System)",
+                "explanation": "The Domain Name System (DNS) acts as the phonebook of the internet, translating human-friendly URLs into numerical IP addresses. Option B is a plausible-sounding but fake acronym expansion."
+            }, {
+                "question_number": 105,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Internet & Networking - Email & Cyber Security",
+                "question": "Which cyber threat involves a psychological trick where an attacker sends a deceptive email mimicking a trusted entity (like your bank) to steal login credentials?",
+                "options": [
+                    "A) Spoofing",
+                    "B) Phishing",
+                    "C) Spamming",
+                    "D) Denial of Service (DoS)"
+                ],
+                "correct_answer": "B) Phishing",
+                "explanation": "Phishing is a social engineering attack where hackers 'fish' for credentials by pretending to be a legitimate institution. Spamming (Option C) is just sending unwanted junk mail, not necessarily malicious credential theft."
+            }, {
+                "question_number": 106,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Internet & Networking - Web Analytics & Digital Terminology",
+                "question": "What is the specific industry term used to describe the collection, measurement, and analysis of visitor behavior data on a website to optimize conversion rates?",
+                "options": [
+                    "A) Market Research",
+                    "B) Cloud Computing",
+                    "C) Web Analytics",
+                    "D) Digital Broadcasting"
+                ],
+                "correct_answer": "C) Web Analytics",
+                "explanation": "Web Analytics is the precise digital term for tracking internet business metrics and user behavior on websites. Option A is too broad and non-specific to digital metrics."
+            }, {
+                "question_number": 107,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Computer Fundamentals & Architecture - Memory & Data Representation",
+                "question": "Based on standard base-2 memory conversion rules, exactly how many bytes does 4 Kilobytes (KB) represent?",
+                "options": [
+                    "A) 4000 bytes",
+                    "B) 4096 bytes",
+                    "C) 1024 bytes",
+                    "D) 2048 bytes"
+                ],
+                "correct_answer": "B) 4096 bytes",
+                "explanation": "In base-2 computer storage, 1 KB is equal to 1024 bytes. Therefore, 4 KB is calculated as 4 x 1024 = 4096 bytes. Option A traps students who use base-10 mathematics."
+            }, {
+                "question_number": 108,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Computer Fundamentals & Architecture - Hardware & Processing",
+                "question": "The speed of a modern computer processor (CPU) is most commonly measured in which of the following units?",
+                "options": [
+                    "A) Megabytes",
+                    "B) Gigahertz",
+                    "C) Nanoseconds",
+                    "D) Pixels"
+                ],
+                "correct_answer": "B) Gigahertz",
+                "explanation": "Processing speed is measured in Hertz (commonly Gigahertz for modern CPUs), representing the number of cycles per second. Option A (Megabytes) incorrectly measures storage capacity."
+            }, {
+                "question_number": 109,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Computer Fundamentals & Architecture - Data Processing & Definitions",
+                "question": "In the theoretical Input-Process-Output model of computing, what is the specific term used to define raw facts and figures once they have been processed by the computer into a meaningful form?",
+                "options": [
+                    "A) Instruction",
+                    "B) Program",
+                    "C) Database",
+                    "D) Information"
+                ],
+                "correct_answer": "D) Information",
+                "explanation": "In computing theory, raw, unorganized facts are 'Data'. Once the computer processes that data into a useful and meaningful context, it becomes 'Information'."
+            }, {
+                "question_number": 110,
+                "main_topic": "Computer and Internet Awareness",
+                "sub_topic": "Operating Systems & Software Basics - OS Concepts",
+                "question": "According to the exact definition tested in OSSC examinations, what is the primary function of an Operating System?",
+                "options": [
+                    "A) It acts as a physical casing that protects internal hardware components.",
+                    "B) It is an interface between the hardware and application programs, managing all resources.",
+                    "C) It is a type of utility software used specifically to defragment hard drives.",
+                    "D) It is the process of starting the computer and loading files into ROM."
+                ],
+                "correct_answer": "B) It is an interface between the hardware and application programs, managing all resources.",
+                "explanation": "The OS is strictly defined as the software interface bridging the gap between the physical hardware and the application programs requested by the user."
+            }, {
+                "question_number": 111,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "In March 2025, who was sworn in as the 24th Prime Minister of Canada, succeeding Justin Trudeau?",
+                "options": [
+                    "A) Lawrence Wong",
+                    "B) Mark Carney",
+                    "C) Friedrich Merz",
+                    "D) José Mujica"
+                ],
+                "correct_answer": "B) Mark Carney",
+                "explanation": "According to the provided document, Mark Carney assumed office as the 24th Prime Minister of Canada on March 15, succeeding Justin Trudeau. [cite: 4, 102]"
+            }, {
+                "question_number": 112,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "Which Indian judicial figure was appointed as the Executive Chairman of the National Legal Services Authority (NALSA) and designated to serve as the 53rd Chief Justice of India?",
+                "options": [
+                    "A) Justice B.R. Gavai",
+                    "B) Justice Harish Tandon",
+                    "C) Justice Surya Kant",
+                    "D) Justice Dinesh Maheshwari"
+                ],
+                "correct_answer": "C) Justice Surya Kant",
+                "explanation": "Justice Surya Kant was designated to serve as the 53rd Chief Justice of India (CJI) and appointed Executive Chairman of NALSA, succeeding Justice B.R. Gavai. [cite: 16, 128]"
+            }, {
+                "question_number": 113,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "Who among the following assumed the role of SEBI Chairperson in 2025, replacing Madhabi Puri Buch?",
+                "options": [
+                    "A) Ajay Seth",
+                    "B) Challa Sreenivasalu Setty",
+                    "C) Tuhin Kanta Pandey",
+                    "D) Dr. Poonam Gupta"
+                ],
+                "correct_answer": "C) Tuhin Kanta Pandey",
+                "explanation": "Tuhin Kanta Pandey assumed the role of SEBI Chairperson, replacing Madhabi Puri Buch. [cite: 19]"
+            }, {
+                "question_number": 114,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "At just 35 years old, former rapper and engineer Balendra Shah was sworn in as the youngest-ever Prime Minister of which country in March 2025?",
+                "options": [
+                    "A) Senegal",
+                    "B) Singapore",
+                    "C) Mongolia",
+                    "D) Nepal"
+                ],
+                "correct_answer": "D) Nepal",
+                "explanation": "Balendra Shah, a 35-year-old former rapper and engineer, was sworn in as the youngest-ever Prime Minister of Nepal on March 26, 2025. [cite: 8]"
+            }, {
+                "question_number": 115,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "Who made history by becoming the first woman to serve as the Secretary of the Department of Economic Affairs (DEA) in India?",
+                "options": [
+                    "A) Nidhi Tiwari",
+                    "B) Anuradha Thakur",
+                    "C) Safeena Husain",
+                    "D) Girija Vyas"
+                ],
+                "correct_answer": "B) Anuradha Thakur",
+                "explanation": "Anuradha Thakur became the first woman to serve as Secretary, Department of Economic Affairs (DEA). [cite: 134]"
+            }, {
+                "question_number": 116,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "Appointed by President Droupadi Murmu, who was sworn in as the 35th Chief Justice of the Orissa High Court in March 2025?",
+                "options": [
+                    "A) Justice Chakradhari Sharan Singh",
+                    "B) Justice Manash Ranjan Pathak",
+                    "C) Justice Harish Tandon",
+                    "D) Justice Vijay Bishnoi"
+                ],
+                "correct_answer": "C) Justice Harish Tandon",
+                "explanation": "Justice Harish Tandon was sworn in as the 35th Chief Justice of the Orissa High Court on March 26, 2025, replacing Justice Chakradhari Sharan Singh. [cite: 54, 157]"
+            }, {
+                "question_number": 117,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "Sivasubramanian Ramann took charge as the Chairperson of which major Indian regulatory authority for a five-year term?",
+                "options": [
+                    "A) SEBI",
+                    "B) RBI",
+                    "C) PFRDA",
+                    "D) NITI Aayog"
+                ],
+                "correct_answer": "C) PFRDA",
+                "explanation": "Sivasubramanian Ramann took charge as Chairperson of the Pension Fund Regulatory and Development Authority (PFRDA) for five years. [cite: 23, 133]"
+            }, {
+                "question_number": 118,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Appointments and Political Leadership",
+                "question": "Which famous actress was appointed as the brand ambassador for Odisha’s Handloom Industry in early 2025?",
+                "options": [
+                    "A) Rani Mukerji",
+                    "B) Madhuri Dixit",
+                    "C) Vidya Balan",
+                    "D) Nandita Das"
+                ],
+                "correct_answer": "B) Madhuri Dixit",
+                "explanation": "Actress Madhuri Dixit was appointed as the brand ambassador for Odisha’s Handloom Industry in early 2025. [cite: 59]"
+            }, {
+                "question_number": 119,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Awards and Honours",
+                "question": "The 59th Jnanpith Award was announced on March 23, 2025. Who received this prestigious honor for their overall contribution to Hindi literature?",
+                "options": [
+                    "A) Vaishnav Charan Samal",
+                    "B) Girijakumar Baliyar Singh",
+                    "C) Vinod Kumar Shukla",
+                    "D) Ramakanta Rath"
+                ],
+                "correct_answer": "C) Vinod Kumar Shukla",
+                "explanation": "The 59th Jnanpith Award was conferred upon Vinod Kumar Shukla for his overall contribution to Hindi literature. [cite: 47, 192]"
+            }, {
+                "question_number": 120,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Awards and Honours",
+                "question": "Which organization, led by Safeena Husain, became the first Indian organization to receive the Ramon Magsaysay Award for its work in girls' education?",
+                "options": [
+                    "A) Pratham",
+                    "B) Teach For India",
+                    "C) Educate Girls",
+                    "D) Room to Read"
+                ],
+                "correct_answer": "C) Educate Girls",
+                "explanation": "Safeena Husain (Educate Girls) became the first Indian organization to receive the Ramon Magsaysay Award for girls' education. [cite: 193]"
+            }, {
+                "question_number": 121,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Awards and Honours",
+                "question": "The International Booker Prize 2025 was awarded to Banu Mushtaq. What is the title of the winning book, which was translated from Kannada?",
+                "options": [
+                    "A) The Golden Road",
+                    "B) Heart Lamp",
+                    "C) Padapurana",
+                    "D) Original Sin"
+                ],
+                "correct_answer": "B) Heart Lamp",
+                "explanation": "The International Booker Prize 2025 was awarded to Banu Mushtaq for 'Heart Lamp' (translated from Kannada). [cite: 191]"
+            }, {
+                "question_number": 122,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Awards and Honours",
+                "question": "At the 71st National Film Awards, which film won the award for Best Odia Film?",
+                "options": [
+                    "A) Mo Bou, Mo Gaan",
+                    "B) Pushkara",
+                    "C) 12th Fail",
+                    "D) Jawan"
+                ],
+                "correct_answer": "B) Pushkara",
+                "explanation": "'Pushkara' won Best Odia Film at the National Film Awards, while 'Mo Bou, Mo Gaan' won Best Biographical/Historical Reconstruction Film. [cite: 87, 189]"
+            }, {
+                "question_number": 123,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Awards and Honours",
+                "question": "Match the Padma Awards 2025 Odia recipients with their respective fields:<br>1. Pratibha Satpathy<br>2. Adwaita Charan Gadanayak<br>3. Durga Charan Ranbir<br><br>A. Art - Odissi Dance<br>B. Literature and Education<br>C. Art - Sculpting",
+                "options": [
+                    "A) 1-B, 2-C, 3-A",
+                    "B) 1-B, 2-A, 3-C",
+                    "C) 1-C, 2-B, 3-A",
+                    "D) 1-A, 2-C, 3-B"
+                ],
+                "correct_answer": "A) 1-B, 2-C, 3-A",
+                "explanation": "The Padma Awards 2025 honored Pratibha Satpathy for Literature and Education, Adwaita Charan Gadanayak for Art - Sculpting, and Durga Charan Ranbir for Art - Odissi Dance. [cite: 55]"
+            }, {
+                "question_number": 124,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Awards and Honours",
+                "question": "Which veteran Malayalam actor was conferred with the prestigious Dadasaheb Phalke Award in 2025?",
+                "options": [
+                    "A) Mammootty",
+                    "B) Kamal Haasan",
+                    "C) Mohanlal",
+                    "D) Rajinikanth"
+                ],
+                "correct_answer": "C) Mohanlal",
+                "explanation": "The Dadasaheb Phalke Award was conferred upon Malayalam actor Mohanlal. [cite: 190]"
+            }, {
+                "question_number": 125,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "At the Doha Diamond League, Neeraj Chopra shattered the 90m barrier to set a new National Record. What was the exact distance of his throw?",
+                "options": [
+                    "A) 90.05m",
+                    "B) 90.15m",
+                    "C) 90.23m",
+                    "D) 90.50m"
+                ],
+                "correct_answer": "C) 90.23m",
+                "explanation": "Neeraj Chopra shattered the 90m barrier at the Doha Diamond League with a throw of 90.23m, marking a new National Record. [cite: 179]"
+            }, {
+                "question_number": 126,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "Who defeated Jannik Sinner to win the Men's Singles title at the French Open 2025?",
+                "options": [
+                    "A) Novak Djokovic",
+                    "B) Carlos Alcaraz",
+                    "C) Rafael Nadal",
+                    "D) Daniil Medvedev"
+                ],
+                "correct_answer": "B) Carlos Alcaraz",
+                "explanation": "Spain's Carlos Alcaraz won the Men's Singles at the French Open 2025 by defeating Jannik Sinner. [cite: 177]"
+            }, {
+                "question_number": 127,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "Which football club won the overall title for the Indian Super League (ISL) 2024-25 season?",
+                "options": [
+                    "A) FC Goa",
+                    "B) Odisha FC",
+                    "C) Mohun Bagan",
+                    "D) Jamshedpur FC"
+                ],
+                "correct_answer": "C) Mohun Bagan",
+                "explanation": "Mohun Bagan won the ISL 2024-25 overall title. [cite: 181]"
+            }, {
+                "question_number": 128,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "Which team emerged victorious in the Kalinga Super Cup by defeating Jamshedpur FC?",
+                "options": [
+                    "A) Odisha FC",
+                    "B) FC Goa",
+                    "C) Mohun Bagan",
+                    "D) Kerala Blasters"
+                ],
+                "correct_answer": "B) FC Goa",
+                "explanation": "FC Goa won the Kalinga Super Cup by defeating Jamshedpur FC. [cite: 182]"
+            }, {
+                "question_number": 129,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "Making history for their franchise, which team won the IPL 2025 title for the first time?",
+                "options": [
+                    "A) Royal Challengers Bengaluru (RCB)",
+                    "B) Delhi Capitals",
+                    "C) Punjab Kings",
+                    "D) Lucknow Super Giants"
+                ],
+                "correct_answer": "A) Royal Challengers Bengaluru (RCB)",
+                "explanation": "Royal Challengers Bengaluru (RCB) won the IPL 2025 title for the first time. [cite: 176]"
+            }, {
+                "question_number": 130,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "At the National Para Athletics Championship, which Odia athlete won Gold with a National Record in the Women's F-55 Javelin throw (18.79m)?",
+                "options": [
+                    "A) Jayanti Behera",
+                    "B) Suchitra Parida",
+                    "C) Preetismita Bhoi",
+                    "D) Navneet Kaur"
+                ],
+                "correct_answer": "B) Suchitra Parida",
+                "explanation": "Suchitra Parida won Gold with a National Record in Women's F-55 Javelin (18.79m) at the National Para Athletics Championship. [cite: 81]"
+            }, {
+                "question_number": 131,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Sports and Major Tournaments",
+                "question": "Which university emerged as the overall champions of the 5th Khelo India University Games (KIUG) 2025?",
+                "options": [
+                    "A) Panjab University",
+                    "B) Jain University",
+                    "C) Chandigarh University",
+                    "D) KIIT University"
+                ],
+                "correct_answer": "C) Chandigarh University",
+                "explanation": "Chandigarh University emerged as champions of the 5th Khelo India University Games (KIUG) 2025. [cite: 186]"
+            }, {
+                "question_number": 132,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Obituaries",
+                "question": "George Foreman, who passed away on March 21, 2025, was a legendary two-time world champion in which sport?",
+                "options": [
+                    "A) Wrestling",
+                    "B) Heavyweight Boxing",
+                    "C) Mixed Martial Arts",
+                    "D) Weightlifting"
+                ],
+                "correct_answer": "B) Heavyweight Boxing",
+                "explanation": "George Foreman was a legendary two-time world heavyweight boxing champion who died on March 21, 2025. [cite: 93]"
+            }, {
+                "question_number": 133,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Obituaries",
+                "question": "Ramakanta Rath, who recently passed away and was posthumously honored for his lifelong contributions, was renowned in which field?",
+                "options": [
+                    "A) Odia Poetry and Literature",
+                    "B) Carnatic Classical Music",
+                    "C) Astrophysics",
+                    "D) Indian Politics"
+                ],
+                "correct_answer": "A) Odia Poetry and Literature",
+                "explanation": "Ramakanta Rath was a renowned Odia poet, posthumously honored for his lifelong contribution to regional literature. [cite: 91]"
+            }, {
+                "question_number": 134,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Eminent Personalities",
+                "question": "Dr. M.R. Srinivasan, frequently mentioned in recent news, is best known for his former role as the Chairman of which premier Indian institution?",
+                "options": [
+                    "A) Indian Space Research Organisation (ISRO)",
+                    "B) Defence Research and Development Organisation (DRDO)",
+                    "C) Atomic Energy Commission",
+                    "D) National Council of Science Museums (NCSM)"
+                ],
+                "correct_answer": "C) Atomic Energy Commission",
+                "explanation": "Dr. M.R. Srinivasan was an eminent nuclear scientist and the former Chairman of the Atomic Energy Commission. [cite: 201]"
+            }, {
+                "question_number": 135,
+                "main_topic": "Current Affairs",
+                "sub_topic": "International Affairs, Summits & Geopolitics",
+                "question": "Where is the main 25th Shanghai Cooperation Organisation (SCO) Summit scheduled to be hosted later in 2025?",
+                "options": [
+                    "A) Samarkand, Uzbekistan",
+                    "B) Tianjin, China",
+                    "C) New Delhi, India",
+                    "D) Minsk, Belarus"
+                ],
+                "correct_answer": "B) Tianjin, China",
+                "explanation": "Member states held ministerial dialogues to finalize the 'Tianjin Declaration' for the main 25th SCO Summit hosted by Tianjin, China, later in 2025. [cite: 11]"
+            }, {
+                "question_number": 136,
+                "main_topic": "Current Affairs",
+                "sub_topic": "International Affairs, Summits & Geopolitics",
+                "question": "What was the official theme of the 78th World Health Assembly held in Geneva, Switzerland?",
+                "options": [
+                    "A) Health for All, All for Health",
+                    "B) One World for Health",
+                    "C) Be Part of the Plan",
+                    "D) Keeping Humanity Alive"
+                ],
+                "correct_answer": "B) One World for Health",
+                "explanation": "The 78th World Health Assembly was held in Geneva, Switzerland under the theme 'One World for Health'. [cite: 112]"
+            }, {
+                "question_number": 137,
+                "main_topic": "Current Affairs",
+                "sub_topic": "International Affairs, Summits & Geopolitics",
+                "question": "At the United Nations Security Council, which country was elected to chair the 1988 Taliban Sanctions Committee in 2025?",
+                "options": [
+                    "A) India",
+                    "B) Pakistan",
+                    "C) Senegal",
+                    "D) Canada"
+                ],
+                "correct_answer": "B) Pakistan",
+                "explanation": "Pakistan was elected to chair the 1988 Taliban Sanctions Committee and serve as Vice-Chair of the 1373 Counter-Terrorism Committee at the UNSC. [cite: 106]"
+            }, {
+                "question_number": 138,
+                "main_topic": "Current Affairs",
+                "sub_topic": "International Affairs, Summits & Geopolitics",
+                "question": "Exercise Tiger Triumph 2025 was a joint tri-service Humanitarian Assistance and Disaster Relief (HADR) exercise held at Visakhapatnam between India and which other nation?",
+                "options": [
+                    "A) France",
+                    "B) Russia",
+                    "C) USA",
+                    "D) New Zealand"
+                ],
+                "correct_answer": "C) USA",
+                "explanation": "Exercise Tiger Triumph 2025 was a joint tri-service HADR exercise with the USA, held at Visakhapatnam/Kakinada. [cite: 43]"
+            }, {
+                "question_number": 139,
+                "main_topic": "Current Affairs",
+                "sub_topic": "International Affairs, Summits & Geopolitics",
+                "question": "In April 2025, the INDRA 2025 joint naval exercise was conducted in the Bay of Bengal between India and:",
+                "options": [
+                    "A) France",
+                    "B) Russia",
+                    "C) Japan",
+                    "D) Sri Lanka"
+                ],
+                "correct_answer": "B) Russia",
+                "explanation": "INDRA 2025 was a joint naval exercise with Russia in the Bay of Bengal, concluding on April 2. [cite: 44]"
+            }, {
+                "question_number": 140,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Science, Defense & Space",
+                "question": "In April 2025, ISRO successfully executed the 'SpaDeX Mission'. What was the primary technological demonstration of this mission?",
+                "options": [
+                    "A) Landing a rover on the lunar south pole.",
+                    "B) Launching 104 satellites from a single rocket.",
+                    "C) Satellite docking and power transfer between spacecraft in orbit.",
+                    "D) Testing the Semi-Cryogenic Engine Power Head."
+                ],
+                "correct_answer": "C) Satellite docking and power transfer between spacecraft in orbit.",
+                "explanation": "The SpaDeX Mission successfully demonstrated satellite docking on April 20, followed by power transfer between spacecraft on April 21. [cite: 39]"
+            }, {
+                "question_number": 141,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Government Schemes, Laws, and Committees",
+                "question": "Discussed as a potential successor or supplement to MGNREGA, the VB-G Ram G Act aims to provide how many days of guaranteed rural work?",
+                "options": [
+                    "A) 100 days",
+                    "B) 125 days",
+                    "C) 150 days",
+                    "D) 200 days"
+                ],
+                "correct_answer": "B) 125 days",
+                "explanation": "The G RAM G Act (Vishwa Bharati–Gramin Rojgar Act), replacing MGNREGA, provides 125 days of guaranteed rural work with a ₹1.51 lakh crore outlay. [cite: 31, 144]"
+            }, {
+                "question_number": 142,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Government Schemes, Laws, and Committees",
+                "question": "Regarding the Odisha Government's 'SUBHADRA Jojana', identify the incorrect statement based on the 2025 outlines:",
+                "options": [
+                    "A) It has a massive total outlay of ₹10,000 crore.",
+                    "B) It targets eligible women strictly between the ages of 18 and 50.",
+                    "C) It provides a total financial assistance of ₹50,000 over five years.",
+                    "D) The scheme is aimed at women's empowerment and financial independence."
+                ],
+                "correct_answer": "B) It targets eligible women strictly between the ages of 18 and 50.",
+                "explanation": "The statement is incorrect because the SUBHADRA Jojana is targeted at eligible women aged 21-60, not 18-50. [cite: 171]"
+            }, {
+                "question_number": 143,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Government Schemes, Laws, and Committees",
+                "question": "Under Odisha's 'Mukhyamantri Kanya Sumangal Yojana', what financial assistance is provided to girls from economically weaker families upon their birth?",
+                "options": [
+                    "A) ₹10,000",
+                    "B) ₹15,000",
+                    "C) ₹20,000",
+                    "D) ₹50,000"
+                ],
+                "correct_answer": "C) ₹20,000",
+                "explanation": "The Mukhyamantri Kanya Sumangal Yojana provides ₹20,000 at birth and ₹1.01 lakh upon graduation for girls from economically weaker families. [cite: 73]"
+            }, {
+                "question_number": 144,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Government Schemes, Laws, and Committees",
+                "question": "Justice Dinesh Maheshwari was appointed as the Chairperson of the 23rd Law Commission of India. What is a primary mandate given to this commission?",
+                "options": [
+                    "A) To draft the new Coastal Shipping Bill.",
+                    "B) To examine and review the Uniform Civil Code (UCC).",
+                    "C) To oversee the implementation of the Unified Pension Scheme.",
+                    "D) To manage the delimitation strategy using 2011 Census data."
+                ],
+                "correct_answer": "B) To examine and review the Uniform Civil Code (UCC).",
+                "explanation": "Justice Dinesh Maheshwari was appointed Chairperson of the 23rd Law Commission of India, which is mandated to examine the Uniform Civil Code (UCC) and review legal frameworks. [cite: 29, 148]"
+            }, {
+                "question_number": 145,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Government Schemes, Laws, and Committees",
+                "question": "A Joint Parliamentary Committee (JPC) was formed to scrutinise the Constitution (130th Amendment) Bill, 2025. What is the core subject of this bill?",
+                "options": [
+                    "A) Women's Reservation in the Lok Sabha.",
+                    "B) Linking a Minister's detention to their continuation in office.",
+                    "C) The digitization of Waqf properties.",
+                    "D) Decriminalizing minor offences across state laws."
+                ],
+                "correct_answer": "B) Linking a Minister's detention to their continuation in office.",
+                "explanation": "A Joint Parliamentary Committee (JPC) was formed to scrutinise the Constitution (130th Amendment) Bill, 2025, which links a Minister's detention to their continuation in office. [cite: 36]"
+            }, {
+                "question_number": 146,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Books and Authors",
+                "question": "Match the recent books with their authors:<br>1. India@2047: Leading the Global Economic Order<br>2. Janta Ki Kahani – Meri Aatamkatha<br>3. Original Sin<br><br>A. Jake Tapper and Alex Thompson<br>B. Bandaru Dattatraya<br>C. Dr. S.P. Sharma",
+                "options": [
+                    "A) 1-C, 2-B, 3-A",
+                    "B) 1-B, 2-C, 3-A",
+                    "C) 1-A, 2-B, 3-C",
+                    "D) 1-C, 2-A, 3-B"
+                ],
+                "correct_answer": "A) 1-C, 2-B, 3-A",
+                "explanation": "'India@2047' is authored by Dr. S.P. Sharma, 'Janta Ki Kahani' by Bandaru Dattatraya, and 'Original Sin' by Jake Tapper and Alex Thompson. [cite: 209, 210, 212]"
+            }, {
+                "question_number": 147,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Important Days and Dates",
+                "question": "Observed on May 11, what was the official theme for National Technology Day 2025?",
+                "options": [
+                    "A) Commercialising Indigenous Technologies: Journey from School to Startups",
+                    "B) A Press for the Planet: Journalism in the Face of the Environmental Crisis",
+                    "C) Social Justice and Decent Work for All",
+                    "D) Be Part of the Plan"
+                ],
+                "correct_answer": "A) Commercialising Indigenous Technologies: Journey from School to Startups",
+                "explanation": "The theme for National Technology Day on May 11 was 'Commercialising Indigenous Technologies: Journey from School to Startups'. [cite: 219]"
+            }, {
+                "question_number": 148,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Indices, Economy, and Reports",
+                "question": "In the World Press Freedom Index 2025, where Norway retained the top spot, what was India's global rank out of 180 countries?",
+                "options": [
+                    "A) 38th",
+                    "B) 142nd",
+                    "C) 151st",
+                    "D) 161st"
+                ],
+                "correct_answer": "C) 151st",
+                "explanation": "In the World Press Freedom Index 2025, India ranked 151st out of 180 countries. [cite: 41]"
+            }, {
+                "question_number": 149,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Indices, Economy, and Reports",
+                "question": "India was ranked 38th globally, leading among lower-middle-income economies, in which major 2025 index?",
+                "options": [
+                    "A) Climate Change Performance Index (CCPI)",
+                    "B) Global Firepower Index",
+                    "C) Global Innovation Index (GII)",
+                    "D) Global Peace Index"
+                ],
+                "correct_answer": "C) Global Innovation Index (GII)",
+                "explanation": "India ranked 38th in the Global Innovation Index (GII), leading among lower-middle-income economies. India also ranked 38th in the International Intellectual Property Index. [cite: 42, 152]"
+            }, {
+                "question_number": 150,
+                "main_topic": "Current Affairs",
+                "sub_topic": "Indices, Economy, and Reports",
+                "question": "According to the FY 2025-26 economic estimates for Odisha, what is the projected Per Capita Income (PCI) for the state?",
+                "options": [
+                    "A) ₹2,03,085",
+                    "B) ₹1,86,761",
+                    "C) ₹1,51,000",
+                    "D) ₹1,95,000"
+                ],
+                "correct_answer": "B) ₹1,86,761",
+                "explanation": "For the 2025-26 estimates, Odisha's Per Capita Income (PCI) was projected to increase by 9.2% to ₹1,86,761. (Note: ₹2,03,085 was the estimate for FY 2024-25). [cite: 63, 64, 164, 165]"
+            }
+        ]
+
+        /* =====================================================================
+           DATA ADAPTER
+           ===================================================================== */
+        const mockQuestions = rawQuestionBank.map(item => {
+            let correctIndex = item.options.findIndex(opt => opt.trim() === item.correct_answer.trim());
+            if (correctIndex === -1) correctIndex = item.options.findIndex(opt => opt.charAt(0) === item.correct_answer.charAt(0));
+            return {
+                id: item.question_number,
+                section: item.main_topic,
+                subtopic: item.sub_topic,
+                question: item.question,
+                options: item.options,
+                correct: correctIndex !== -1 ? correctIndex : 0,
+                explanation: item.explanation
+            };
+        });
+
+        /* =====================================================================
+           GLOBAL STATE & CONSTANTS
+           ===================================================================== */
+        const ENCRYPTION_KEY = "ExamProSecureKey2026!";
+        let currentQIndex = 0;
+        let examTimerInterval;
+        let timeLeft = 90 * 60;
+        let userResponses = {};
+        let currentExamData = null;
+        let evaluatorMetacognition = {};
+
+        let radarChartInst = null;
+        let stackedBarChartInst = null;
+        let currentDashboardSection = 'Overall';
+        let currentTableFilter = 'All';
+        let currentSearchQuery = '';
+
+        // PROCTORING STATE
+        let isExamActive = false;
+        let tabSwitchWarnings = 0;
+        const MAX_WARNINGS = 3;
+
+        /* =====================================================================
+           ANTI-CHEAT PROCTORING LOGIC
+           ===================================================================== */
+
+        // 1. Prevent Right-Click, Copy, Cut, Paste globally IF exam is active
+        ['copy', 'cut', 'paste', 'contextmenu'].forEach(evt => {
+            document.addEventListener(evt, (e) => {
+                if (isExamActive) {
+                    e.preventDefault();
+                }
+            });
+        });
+
+        // 2. Prevent Tab Switching via Visibility API
+        document.addEventListener("visibilitychange", () => {
+            if (isExamActive && document.hidden) {
+                tabSwitchWarnings++;
+                if (tabSwitchWarnings >= MAX_WARNINGS) {
+                    alert("🚨 EXAM TERMINATED: You navigated away from the exam window too many times. Your exam is being auto-submitted.");
+                    submitExam();
+                } else {
+                    alert(`⚠️ WARNING: Tab switching/leaving the window is strictly prohibited!\n\nStrike ${tabSwitchWarnings} of ${MAX_WARNINGS}. Your exam will be auto-submitted on the 3rd strike.`);
+                }
+            }
+        });
+
+
+        /* =====================================================================
+           UTILITY FUNCTIONS
+           ===================================================================== */
+        function switchView(viewId) {
+            document.getElementById('view-home').classList.add('hidden');
+            document.getElementById('view-exam').classList.add('hidden');
+            document.getElementById('view-evaluator').classList.add('hidden');
+            document.getElementById(viewId).classList.remove('hidden');
+        }
+
+        function formatLabel(str, maxLen = 22) {
+            if (str.length <= maxLen) return str;
+            const words = str.split(' ');
+            let lines = [];
+            let currentLine = '';
+            words.forEach(word => {
+                if ((currentLine + word).length > maxLen) {
+                    lines.push(currentLine.trim());
+                    currentLine = word + ' ';
+                } else {
+                    currentLine += word + ' ';
+                }
+            });
+            lines.push(currentLine.trim());
+            return lines;
+        }
+
+        function mapConfidenceLabel(val) {
+            if (val === "3") return "High Confidence";
+            if (val === "2") return "Med Confidence";
+            if (val === "1") return "Low Confidence";
+            if (val === "0") return "Zero Confidence";
+            return "Unlogged Conf";
+        }
+
+        function highlightText(text, query) {
+            if (!query || query.trim() === '') return text;
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(${escapedQuery})`, 'gi');
+            return text.replace(regex, `<mark class="bg-yellow-200 text-yellow-900 rounded-sm px-0.5 font-bold shadow-sm">$1</mark>`);
+        }
+
+        /* =====================================================================
+           MODULE 1: EXAM MODE (ASPIRANT)
+           ===================================================================== */
+        function startExam() {
+            switchView('view-exam');
+            currentQIndex = 0;
+            userResponses = {};
+            timeLeft = 90 * 60;
+            document.getElementById('table-search').value = "";
+
+            // Activate Anti-Cheat Guardrails
+            isExamActive = true;
+            tabSwitchWarnings = 0;
+
+            startTimer();
+            renderQuestion();
+        }
+
+        function startTimer() {
+            examTimerInterval = setInterval(() => {
+                timeLeft--;
+                let h = Math.floor(timeLeft / 3600);
+                let m = Math.floor((timeLeft % 3600) / 60);
+                let s = timeLeft % 60;
+                document.getElementById('timer-display').innerText = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                if (timeLeft <= 0) {
+                    clearInterval(examTimerInterval);
+                    submitExam();
+                }
+            }, 1000);
+        }
+
+        function renderQuestion() {
+            const q = mockQuestions[currentQIndex];
+            const saved = userResponses[q.id] || {};
+            let optionsHtml = '';
+            q.options.forEach((opt, idx) => {
+                const isChecked = saved.answer === idx ? 'checked' : '';
+                optionsHtml += `
+            <label class="block p-4 mb-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 transition shadow-sm ${isChecked ? 'bg-blue-50 border-blue-400' : ''}">
+                <input type="radio" name="q${q.id}" value="${idx}" class="mr-3" ${isChecked} onchange="saveResponse(${q.id}, ${idx})">
+                ${opt}
+            </label>
+        `;
+            });
+            document.getElementById('question-container').innerHTML = `
+        <span class="text-sm font-bold text-blue-600 uppercase tracking-wider">${q.section} - ${q.subtopic}</span>
+        <div class="font-semibold text-gray-800 text-lg md:text-xl mt-2 mb-6 whitespace-pre-wrap leading-relaxed">${q.id}. ${q.question}</div>
+        <div class="mb-4">${optionsHtml}</div>
+    `;
+            document.getElementById('question-counter').innerText = `Q ${currentQIndex + 1} of ${mockQuestions.length}`;
+            document.getElementById('btn-prev').disabled = currentQIndex === 0;
+            if (currentQIndex === mockQuestions.length - 1) {
+                document.getElementById('btn-next').classList.add('hidden');
+                document.getElementById('btn-submit').classList.remove('hidden');
+            } else {
+                document.getElementById('btn-next').classList.remove('hidden');
+                document.getElementById('btn-submit').classList.add('hidden');
+            }
+        }
+
+        function saveResponse(qId, value) {
+            if (!userResponses[qId]) userResponses[qId] = {};
+            userResponses[qId].answer = parseInt(value);
+            renderQuestion();
+        }
+
+        function navigate(dir) {
+            currentQIndex += dir;
+            renderQuestion();
+        }
+
+        function submitExam() {
+            clearInterval(examTimerInterval);
+
+            // Deactivate Anti-Cheat Guardrails so they can use their computer normally after
+            isExamActive = false;
+
+            const payload = {
+                student: "Aspirant_101",
+                date: new Date().toISOString(),
+                timeTaken: (90 * 60) - timeLeft,
+                answers: userResponses,
+                questionsMeta: mockQuestions
+            };
+            const encrypted = CryptoJS.AES.encrypt(JSON.stringify(payload), ENCRYPTION_KEY).toString();
+            const blob = new Blob([encrypted], {
+                type: 'application/octet-stream'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Aspirant_101_submission.examdata`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            alert("Exam submitted! The encrypted .examdata file has been downloaded.");
+            switchView('view-home');
+        }
+
+        /* =====================================================================
+           MODULE 2: EVALUATOR MODE (REVIEWER)
+           ===================================================================== */
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(e.target.result, ENCRYPTION_KEY);
+                    currentExamData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                    evaluatorMetacognition = currentExamData.evaluations || {};
+                    currentDashboardSection = 'Overall';
+                    currentTableFilter = 'All';
+                    currentSearchQuery = '';
+                    document.getElementById('table-search').value = "";
+
+                    renderTableFilters();
+                    renderTable(currentExamData);
+                    updateAllCharts();
+
+                    document.getElementById('upload-section').classList.add('hidden');
+                    document.getElementById('dashboard-content').classList.remove('hidden');
+                    document.getElementById('btn-save-eval').classList.remove('hidden');
+                } catch (err) {
+                    alert("Error parsing file.");
+                    console.error(err);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function saveEvaluation() {
+            if (!currentExamData) return;
+            currentExamData.evaluations = evaluatorMetacognition;
+            currentExamData.lastEvaluatedDate = new Date().toISOString();
+            const encrypted = CryptoJS.AES.encrypt(JSON.stringify(currentExamData), ENCRYPTION_KEY).toString();
+            const blob = new Blob([encrypted], {
+                type: 'application/octet-stream'
+            });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${currentExamData.student || "Aspirant"}_evaluated_submission.examdata`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            alert("Evaluation progress saved! Updated .examdata downloaded.");
+        }
+
+        /* --- TABLE FILTER & SEARCH UI LOGIC --- */
+
+        function handleSearch(query) {
+            currentSearchQuery = query;
+            renderTable(currentExamData);
+        }
+
+        function renderTableFilters() {
+            const filtersContainer = document.getElementById('table-filters');
+            if (!filtersContainer || !currentExamData) return;
+
+            const filters = ['All', 'Incorrect', 'Correct', 'Unattempted'];
+            let html = '';
+
+            filters.forEach(f => {
+                const isActive = f === currentTableFilter;
+                let baseClasses = "px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-200 border cursor-pointer flex items-center gap-1.5 ";
+
+                let count = 0;
+                if (f === 'All') {
+                    count = currentExamData.questionsMeta.length;
+                } else {
+                    count = currentExamData.questionsMeta.filter(q => {
+                        const resp = currentExamData.answers[q.id] || {};
+                        const isAttempted = resp.answer !== undefined;
+                        const isCorrect = isAttempted && resp.answer === q.correct;
+                        if (f === 'Correct') return isCorrect;
+                        if (f === 'Incorrect') return isAttempted && !isCorrect;
+                        if (f === 'Unattempted') return !isAttempted;
+                    }).length;
+                }
+
+                if (isActive) {
+                    if (f === 'All') baseClasses += "bg-indigo-600 text-white border-indigo-600 shadow-md";
+                    else if (f === 'Correct') baseClasses += "bg-green-600 text-white border-green-600 shadow-md";
+                    else if (f === 'Incorrect') baseClasses += "bg-red-600 text-white border-red-600 shadow-md";
+                    else if (f === 'Unattempted') baseClasses += "bg-gray-500 text-white border-gray-500 shadow-md";
+                } else {
+                    baseClasses += "bg-white text-gray-600 border-gray-200 hover:bg-gray-50";
+                }
+
+                html += `<button onclick="setTableFilter('${f}')" class="${baseClasses}">
+                    ${f} 
+                    <span class="${isActive ? 'bg-white/20' : 'bg-gray-100 text-gray-500'} px-2 py-0.5 rounded-full text-[10px] ml-1">${count}</span>
+                 </button>`;
+            });
+
+            filtersContainer.innerHTML = html;
+        }
+
+        function setTableFilter(filter) {
+            currentTableFilter = filter;
+            renderTableFilters();
+            renderTable(currentExamData);
+        }
+
+        function renderTable(data) {
+            let tableHtml = '';
+
+            const filteredQuestions = data.questionsMeta.filter(q => {
+                // NEW: Check if it matches the selected Dashboard Tab
+                let matchesSection = true;
+                if (currentDashboardSection !== 'Overall') {
+                    matchesSection = (q.section === currentDashboardSection);
+                }
+
+                // EXISTING: Check Status Filter (Correct, Incorrect, etc.)
+                let matchesStatus = true;
+                if (currentTableFilter !== 'All') {
+                    const resp = data.answers[q.id] || {};
+                    const isAttempted = resp.answer !== undefined;
+                    const isCorrect = isAttempted && resp.answer === q.correct;
+                    if (currentTableFilter === 'Correct') matchesStatus = isCorrect;
+                    else if (currentTableFilter === 'Incorrect') matchesStatus = isAttempted && !isCorrect;
+                    else if (currentTableFilter === 'Unattempted') matchesStatus = !isAttempted;
+                }
+
+                // EXISTING: Check Search Query
+                let matchesSearch = true;
+                if (currentSearchQuery.trim() !== "") {
+                    const searchLower = currentSearchQuery.toLowerCase();
+                    matchesSearch = q.section.toLowerCase().includes(searchLower) ||
+                        q.subtopic.toLowerCase().includes(searchLower);
+                }
+
+                // Return true only if it passes all three filters
+                return matchesSection && matchesStatus && matchesSearch;
+            });
+
+            if (filteredQuestions.length === 0) {
+                tableHtml = `<tr><td colspan="4" class="py-12 text-center text-gray-500 italic bg-gray-50">No questions found matching your criteria.</td></tr>`;
+            } else {
+                filteredQuestions.forEach((q) => {
+                    const resp = data.answers[q.id] || {};
+                    const isAttempted = resp.answer !== undefined;
+                    const isCorrect = isAttempted && resp.answer === q.correct;
+                    const meta = evaluatorMetacognition[q.id] || {};
+                    const selAnalysis = meta.analysis || "";
+                    const selConfidence = meta.confidence || "";
+                    const isSel = (val, target) => val === target ? "selected" : "";
+
+                    const displaySection = highlightText(q.section, currentSearchQuery);
+                    const displaySubtopic = highlightText(q.subtopic, currentSearchQuery);
+
+                    let optionsListHtml = q.options.map((opt, idx) => {
+                        let isChosen = resp.answer === idx;
+                        let isActualCorrect = q.correct === idx;
+
+                        let liClass = "border-transparent text-gray-600";
+                        let badge = "";
+                        let badgeClass = "hidden";
+
+                        if (isActualCorrect && isChosen) {
+                            liClass = "bg-green-50 border-green-200 text-green-900 font-semibold";
+                            badge = "Correct Choice";
+                            badgeClass = "bg-green-200 text-green-800";
+                        } else if (isActualCorrect && !isChosen) {
+                            liClass = "bg-blue-50 border-blue-200 text-blue-900 font-medium";
+                            badge = "Right Answer";
+                            badgeClass = "bg-blue-200 text-blue-800";
+                        } else if (!isActualCorrect && isChosen) {
+                            liClass = "bg-red-50 border-red-200 text-red-900 font-medium";
+                            badge = "Aspirant's Choice";
+                            badgeClass = "bg-red-200 text-red-800";
+                        }
+
+                        return `
+                    <li class="p-3 rounded-lg border ${liClass} flex justify-between items-start gap-3 transition-colors">
+                        <span class="flex-1 leading-snug">${opt}</span>
+                        <span class="${badgeClass} text-[10px] uppercase tracking-wider font-bold px-2.5 py-1 rounded-full shrink-0">${badge}</span>
+                    </li>`;
+                    }).join('');
+
+                    let searchQuery = encodeURIComponent(`${q.question} ${q.options.join(" ")}`);
+
+                    let statusHtml = !isAttempted ?
+                        `<span class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-gray-200"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Unattempted</span>` :
+                        (isCorrect ?
+                            `<span class="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-green-200"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Correct</span>` :
+                            `<span class="inline-flex items-center gap-1.5 bg-red-100 text-red-700 text-xs px-2.5 py-1.5 rounded-md font-bold border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Incorrect</span>`);
+
+                    tableHtml += `
+                <tr class="border-b border-gray-100 align-top bg-white hover:bg-slate-50/50">
+                    <td class="py-6 px-6 font-bold text-gray-300 text-2xl w-16">${q.id}</td>
+                    <td class="py-6 px-6">
+                        <div class="flex flex-wrap items-center gap-2 mb-4">
+                            <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-sm">${displaySection}</span>
+                            <span class="text-gray-300 text-xs">&rsaquo;</span>
+                            <span class="text-gray-500 text-xs font-semibold">${displaySubtopic}</span>
+                        </div>
+                        <div class="font-semibold text-gray-900 text-[15px] mb-5 whitespace-pre-wrap leading-relaxed">${q.question}</div>
+                        <ul class="space-y-2.5 mb-5 w-full max-w-2xl">${optionsListHtml}</ul>
+                        <div class="text-sm text-amber-900 bg-amber-50/50 p-4 rounded-lg border border-amber-200/60 shadow-sm max-w-3xl">
+                            <span class="font-bold uppercase tracking-wider text-[11px] text-amber-700 block mb-1">Explanation</span>
+                            <span class="leading-relaxed">${q.explanation}</span>
+                        </div>
+                        <div class="mt-4"><a href="https://www.google.com/search?q=${searchQuery}" target="_blank" class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-semibold transition-colors"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>Deep Dive via Google</a></div>
+                    </td>
+                    <td class="py-6 px-6">${statusHtml}</td>
+                    <td class="py-6 px-6 bg-slate-50/80 border-l border-gray-100">
+                        <div class="space-y-5">
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Root Cause Analysis</label>
+                                <select onchange="updateMetaTracker(${q.id}, 'analysis', this.value)" class="custom-select w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 shadow-sm appearance-none hover:border-indigo-300 transition-colors cursor-pointer font-medium">
+                                    <option value="" disabled ${isSel("", selAnalysis)}>Discuss & Select...</option>
+                                    <optgroup label="Success Metrics">
+                                        <option value="Mastery" ${isSel("Mastery", selAnalysis)}>Mastery / Deep Knowledge</option>
+                                        <option value="Educated Guess" ${isSel("Educated Guess", selAnalysis)}>Educated Guess</option>
+                                        <option value="Lucky Guess" ${isSel("Lucky Guess", selAnalysis)}>Lucky Guess</option>
+                                    </optgroup>
+                                    <optgroup label="Error Metrics">
+                                        <option value="Conceptual Error" ${isSel("Conceptual Error", selAnalysis)}>Conceptual Error</option>
+                                        <option value="Misread" ${isSel("Misread", selAnalysis)}>Misread / Silly Mistake</option>
+                                        <option value="Unaware" ${isSel("Unaware", selAnalysis)}>Unaware / Blind Guess</option>
+                                        <option value="Topic Not Covered" ${isSel("Topic Not Covered", selAnalysis)}>Topic Not Covered</option>
+                                        <option value="Timeout" ${isSel("Timeout", selAnalysis)}>Time Crunch / Timeout</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wider">Aspirant's Confidence</label>
+                                <select onchange="updateMetaTracker(${q.id}, 'confidence', this.value)" class="custom-select w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 block p-2.5 shadow-sm appearance-none hover:border-indigo-300 transition-colors cursor-pointer font-medium">
+                                    <option value="" disabled ${isSel("", selConfidence)}>Discuss & Select...</option>
+                                    <option value="3" ${isSel("3", selConfidence)}>High (100% Sure)</option>
+                                    <option value="2" ${isSel("2", selConfidence)}>Medium (50/50)</option>
+                                    <option value="1" ${isSel("1", selConfidence)}>Low (Total Guess)</option>
+                                    <option value="0" ${isSel("0", selConfidence)}>Zero (Blanked Out)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+                });
+            }
+
+            document.getElementById('breakdown-table-body').innerHTML = tableHtml;
+        }
+
+        function updateMetaTracker(qId, key, value) {
+            if (!evaluatorMetacognition[qId]) evaluatorMetacognition[qId] = {};
+            evaluatorMetacognition[qId][key] = value;
+            updateAllCharts();
+        }
+
+        /* =====================================================================
+           DATA PROCESSING & CHART RENDERING
+           ===================================================================== */
+        window.globalSubtopicStats = {};
+        window.globalSankeyFlows = {};
+
+        function updateAllCharts() {
+            if (!currentExamData) return;
+
+            const sectionStats = {};
+            const subtopicStats = {
+                'Overall': {}
+            };
+            const sankeyFlows = {
+                'Overall': []
+            };
+
+            currentExamData.questionsMeta.forEach(q => {
+                const resp = currentExamData.answers[q.id] || {};
+                const isAttempted = resp.answer !== undefined;
+                const isCorrect = isAttempted && resp.answer === q.correct;
+                const meta = evaluatorMetacognition[q.id] || {};
+
+                if (!sectionStats[q.section]) sectionStats[q.section] = {
+                    correct: 0,
+                    wrong: 0,
+                    unattempted: 0
+                };
+                if (!isAttempted) sectionStats[q.section].unattempted++;
+                else if (isCorrect) sectionStats[q.section].correct++;
+                else sectionStats[q.section].wrong++;
+
+                if (!subtopicStats[q.section]) subtopicStats[q.section] = {};
+                if (!subtopicStats[q.section][q.subtopic]) subtopicStats[q.section][q.subtopic] = {
+                    total: 0,
+                    correct: 0,
+                    confSum: 0,
+                    confCount: 0
+                };
+                if (!subtopicStats['Overall'][q.subtopic]) subtopicStats['Overall'][q.subtopic] = {
+                    total: 0,
+                    correct: 0,
+                    confSum: 0,
+                    confCount: 0
+                };
+
+                subtopicStats[q.section][q.subtopic].total++;
+                subtopicStats['Overall'][q.subtopic].total++;
+                if (isCorrect) {
+                    subtopicStats[q.section][q.subtopic].correct++;
+                    subtopicStats['Overall'][q.subtopic].correct++;
+                }
+                if (meta.confidence) {
+                    subtopicStats[q.section][q.subtopic].confSum += parseInt(meta.confidence);
+                    subtopicStats[q.section][q.subtopic].confCount++;
+                    subtopicStats['Overall'][q.subtopic].confSum += parseInt(meta.confidence);
+                    subtopicStats['Overall'][q.subtopic].confCount++;
+                }
+
+                if (!sankeyFlows[q.section]) sankeyFlows[q.section] = [];
+                if (meta.confidence && meta.analysis) {
+                    let confLabel = mapConfidenceLabel(meta.confidence);
+                    let rootLabel = meta.analysis;
+                    let outLabel = !isAttempted ? "Unattempted" : (isCorrect ? "Correct" : "Incorrect");
+
+                    sankeyFlows[q.section].push({
+                        source: confLabel,
+                        target: rootLabel
+                    });
+                    sankeyFlows[q.section].push({
+                        source: rootLabel,
+                        target: outLabel
+                    });
+                    sankeyFlows['Overall'].push({
+                        source: confLabel,
+                        target: rootLabel
+                    });
+                    sankeyFlows['Overall'].push({
+                        source: rootLabel,
+                        target: outLabel
+                    });
+                }
+            });
+
+            window.globalSubtopicStats = subtopicStats;
+            window.globalSankeyFlows = sankeyFlows;
+
+            drawStackedBarChart(sectionStats);
+            renderDashboardTabs();
+            drawDynamicCharts(currentDashboardSection);
+        }
+
+        Chart.defaults.elements.bar.borderWidth = 2;
+        Chart.defaults.elements.bar.borderRadius = 4;
+        Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+
+        function renderDashboardTabs() {
+            const tabsContainer = document.getElementById('dashboard-tabs');
+            const sections = Object.keys(window.globalSubtopicStats);
+            let tabsHtml = '';
+            sections.forEach(sec => {
+                const isActive = sec === currentDashboardSection;
+                const activeClass = isActive ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200';
+                tabsHtml += `<button onclick="setDashboardSection('${sec}')" class="px-5 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${activeClass}">${sec}</button>`;
+            });
+            tabsContainer.innerHTML = tabsHtml;
+        }
+
+        function setDashboardSection(sec) {
+            currentDashboardSection = sec;
+            renderDashboardTabs();
+            drawDynamicCharts(sec);
+            renderTable(currentExamData);
+        }
+
+        function drawDynamicCharts(sectionKey) {
+            drawRadarChart(sectionKey);
+            drawSankeyDiagram(sectionKey);
+        }
+
+        function drawRadarChart(sectionKey) {
+            const data = window.globalSubtopicStats[sectionKey];
+            if (!data) return;
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            if (radarChartInst) radarChartInst.destroy();
+
+            const labels = Object.keys(data).map(l => formatLabel(l));
+            const accuracyData = Object.keys(data).map(l => (data[l].correct / data[l].total) * 100);
+            const confidenceData = Object.keys(data).map(l => {
+                let count = data[l].confCount;
+                if (count === 0) return 0;
+                return ((data[l].confSum / count) / 3) * 100;
+            });
+
+            radarChartInst = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                            label: 'Accuracy (%)',
+                            data: accuracyData,
+                            backgroundColor: 'rgba(79, 70, 229, 0.4)',
+                            borderColor: 'rgba(67, 56, 202, 1)'
+                        },
+                        {
+                            label: 'Logged Confidence (%)',
+                            data: confidenceData,
+                            backgroundColor: 'rgba(245, 158, 11, 0.4)',
+                            borderColor: 'rgba(217, 119, 6, 1)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            suggestedMin: 0,
+                            suggestedMax: 100,
+                            ticks: {
+                                display: false
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${Math.round(ctx.raw)}%`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawStackedBarChart(data) {
+            const ctx = document.getElementById('stackedBarChart').getContext('2d');
+            if (stackedBarChartInst) stackedBarChartInst.destroy();
+
+            const labels = Object.keys(data).map(l => formatLabel(l));
+            const correctData = Object.keys(data).map(l => data[l].correct);
+            const wrongData = Object.keys(data).map(l => data[l].wrong);
+            const unattemptedData = Object.keys(data).map(l => data[l].unattempted);
+
+            stackedBarChartInst = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                            label: 'Correct',
+                            data: correctData,
+                            backgroundColor: '#22c55e',
+                            barPercentage: 0.6
+                        },
+                        {
+                            label: 'Incorrect',
+                            data: wrongData,
+                            backgroundColor: '#ef4444',
+                            barPercentage: 0.6
+                        },
+                        {
+                            label: 'Unattempted',
+                            data: unattemptedData,
+                            backgroundColor: '#d1d5db',
+                            barPercentage: 0.6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            stacked: true
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top'
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawSankeyDiagram(sectionKey) {
+            const rawFlows = window.globalSankeyFlows[sectionKey];
+            const container = document.getElementById('sankeyChart');
+
+            if (!rawFlows || rawFlows.length === 0) {
+                Plotly.purge(container);
+                container.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400 italic">No cognitive data logged for ${sectionKey} yet. Select options in the table above.</div>`;
+                return;
+            }
+
+            const linkMap = {};
+            rawFlows.forEach(flow => {
+                const key = `${flow.source}->${flow.target}`;
+                linkMap[key] = (linkMap[key] || 0) + 1;
+            });
+
+            const nodeNames = [];
+            rawFlows.forEach(flow => {
+                if (!nodeNames.includes(flow.source)) nodeNames.push(flow.source);
+                if (!nodeNames.includes(flow.target)) nodeNames.push(flow.target);
+            });
+
+            const sourceArr = [];
+            const targetArr = [];
+            const valueArr = [];
+            Object.keys(linkMap).forEach(key => {
+                const parts = key.split('->');
+                sourceArr.push(nodeNames.indexOf(parts[0]));
+                targetArr.push(nodeNames.indexOf(parts[1]));
+                valueArr.push(linkMap[key]);
+            });
+
+            const nodeColors = nodeNames.map(name => {
+                if (name.includes("High")) return '#4f46e5';
+                if (name.includes("Med")) return '#8b5cf6';
+                if (name.includes("Low") || name.includes("Zero")) return '#f59e0b';
+                if (["Mastery", "Educated Guess", "Lucky Guess", "Correct"].includes(name)) return '#22c55e';
+                if (name === "Unattempted") return '#9ca3af'; // Added gray for Unattempted
+                return '#ef4444';
+            });
+
+            const data = {
+                type: "sankey",
+                orientation: "h",
+                node: {
+                    pad: 20,
+                    thickness: 30,
+                    line: {
+                        color: "black",
+                        width: 0.5
+                    },
+                    label: nodeNames,
+                    color: nodeColors
+                },
+                link: {
+                    source: sourceArr,
+                    target: targetArr,
+                    value: valueArr,
+                    color: "rgba(200, 200, 200, 0.4)"
+                }
+            };
+
+            const layout = {
+                font: {
+                    size: 12,
+                    family: 'Inter'
+                },
+                margin: {
+                    t: 20,
+                    l: 20,
+                    r: 20,
+                    b: 20
+                }
+            };
+
+            Plotly.newPlot(container, [data], layout, {
+                responsive: true
+            });
+        }
+    </script>
+</body>
+
+</html>
